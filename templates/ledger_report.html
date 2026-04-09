@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block header %}Account Ledger: {{ target_account.name if target_account else 'Select Account' }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Account Selector & Filter -->
+    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <form action="{{ url_for('reports.ledger_report') }}" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Select Ledger Account</label>
+                <select name="account_id" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+                    <option value="">-- Choose Account --</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}" {{ 'selected' if target_account and target_account.id == acc.id }}>
+                        {{ acc.code }} - {{ acc.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">From Date</label>
+                <input type="date" name="from_date" value="{{ from_date or '' }}" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">To Date</label>
+                <input type="date" name="to_date" value="{{ to_date or '' }}" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex space-x-2">
+                <button type="submit" class="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+                    Generate Ledger
+                </button>
+                {% if target_account %}
+                <a href="{{ url_for('reports.export_ledger', account_id=target_account.id, from_date=from_date, to_date=to_date) }}" class="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg flex items-center">
+                    <i class="fas fa-file-excel mr-2 text-base"></i> Export
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if target_account %}
+    <!-- Ledger Table -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50 text-[10px] text-gray-400 uppercase font-black tracking-widest">
+                    <tr>
+                        <th class="px-8 py-5">Date</th>
+                        <th class="px-8 py-5">Reference</th>
+                        <th class="px-8 py-5">Description</th>
+                        <th class="px-8 py-5 text-right">Debit</th>
+                        <th class="px-8 py-5 text-right">Credit</th>
+                        <th class="px-8 py-5 text-right">Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% set ns = namespace(running_balance=0) %}
+                    {% for entry in entries %}
+                        {% if target_account.type in ['asset', 'expense'] %}
+                            {% set ns.running_balance = ns.running_balance + (entry.debit - entry.credit) %}
+                        {% else %}
+                            {% set ns.running_balance = ns.running_balance + (entry.credit - entry.debit) %}
+                        {% endif %}
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        <td class="px-8 py-6 text-sm text-gray-500 font-medium">{{ entry.parent.date.strftime('%d-%m-%Y') }}</td>
+                        <td class="px-8 py-6">
+                            <span class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase">
+                                {{ entry.parent.reference or 'JR' }}
+                            </span>
+                        </td>
+                        <td class="px-8 py-6">
+                            <p class="font-bold text-gray-800">{{ entry.parent.description }}</p>
+                        </td>
+                        <td class="px-8 py-6 text-right font-mono text-sm text-emerald-600 font-black">
+                            {{ "৳ {:,.2f}".format(entry.debit) if entry.debit > 0 else '-' }}
+                        </td>
+                        <td class="px-8 py-6 text-right font-mono text-sm text-rose-600 font-black">
+                            {{ "৳ {:,.2f}".format(entry.credit) if entry.credit > 0 else '-' }}
+                        </td>
+                        <td class="px-8 py-6 text-right font-mono text-sm font-black text-gray-900 bg-gray-50/30">
+                            ৳ {{ "{:,.2f}".format(ns.running_balance) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not entries %}
+                    <tr>
+                        <td colspan="6" class="px-8 py-12 text-center text-gray-400 font-medium">
+                            No transactions found for the selected period.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-indigo-50 border-2 border-indigo-100 p-16 rounded-3xl text-center">
+        <div class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-book-open text-3xl"></i>
+        </div>
+        <h3 class="text-2xl font-black text-gray-800 mb-2 font-mono">Detailed Ledger View</h3>
+        <p class="text-gray-500 max-w-md mx-auto">Select an account from the drop-down above and apply date filters to see the complete transaction history and running balances.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

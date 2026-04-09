@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block header %}Maintenance Ticketing{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-8">
+    <h2 class="text-2xl font-bold text-gray-800">Support & Repairs</h2>
+    <button onclick="document.getElementById('addTicketModal').classList.remove('hidden')" class="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition-colors shadow-lg shadow-rose-100">
+        <i class="fas fa-plus mr-2"></i> Log Issue
+    </button>
+</div>
+
+<div class="bg-indigo-50 border border-indigo-100 p-6 rounded-[2.5rem] mb-10 flex items-center shadow-sm animate-fade-in text-sm font-medium text-indigo-700">
+    <div class="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mr-6 shadow-lg shadow-indigo-100">
+        <i class="fas fa-info-circle"></i>
+    </div>
+    <div>
+        <p class="font-black text-indigo-900 uppercase text-[10px] tracking-widest mb-1">Administrative Guide</p>
+        To create a new <strong>Maintenance Alert</strong>, click the <span class="bg-rose-600 text-white px-2 py-0.5 rounded-lg font-bold">Log Alert</span> button in the top bar or use the <strong>Log Issue</strong> button below. These alerts will immediately appear in your notification bell.
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for ticket in tickets %}
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-4">
+            {% if ticket.status == 'open' %}
+                <span class="px-2 py-1 bg-rose-100 text-rose-700 text-[10px] font-black uppercase rounded">Open</span>
+            {% elif ticket.status == 'resolved' %}
+                <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded">Resolved</span>
+            {% endif %}
+        </div>
+        
+        <div class="flex items-center space-x-4 mb-4">
+            <div class="w-12 h-12 bg-gray-100 flex items-center justify-center rounded-2xl text-gray-400 text-xl font-bold">
+                {{ ticket.unit.unit_number }}
+            </div>
+            <div>
+                <p class="font-bold text-gray-800">{{ ticket.unit.resident.name if ticket.unit.resident else 'Vacant Unit' }}</p>
+                <p class="text-xs text-gray-400">{{ ticket.created_at.strftime('%d %b, %H:%M') }}</p>
+            </div>
+        </div>
+        
+        <p class="text-gray-600 text-sm mb-6 flex-grow leading-relaxed">
+            {{ ticket.description }}
+        </p>
+        
+        <div class="flex items-center justify-between border-t border-gray-50 pt-4">
+            <span class="text-xs text-gray-400 font-medium"><i class="far fa-clock mr-1"></i> Added {{ ticket.created_at.strftime('%H:%M') }}</span>
+            {% if ticket.status == 'open' %}
+            <form action="{{ url_for('maintenance.resolve_ticket', ticket_id=ticket.id) }}" method="POST">
+                <button type="submit" class="text-emerald-600 font-bold text-xs hover:underline uppercase tracking-wider">Mark Resolved</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="col-span-full py-20 text-center">
+        <div class="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-check text-4xl text-emerald-300"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-1">No Active Tickets</h3>
+        <p class="text-gray-400">Everything is running smoothly!</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Ticket Modal -->
+<div id="addTicketModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+        <h3 class="text-xl font-bold mb-6 text-rose-800">Report Unit Issue</h3>
+        <form action="{{ url_for('maintenance.add_ticket') }}" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Select Unit</label>
+                <select name="unit_id" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-400 outline-none">
+                    {% for unit in units %}
+                    <option value="{{ unit.id }}">{{ unit.unit_number }} ({{ unit.resident.name if unit.resident else 'Vacant' }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Incident Details</label>
+                <textarea name="description" required rows="4" placeholder="Describe the issue in detail..." class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-rose-400 outline-none"></textarea>
+            </div>
+            <div class="flex justify-end space-x-4 mt-8">
+                <button type="button" onclick="document.getElementById('addTicketModal').classList.add('hidden')" class="px-6 py-2 text-gray-500 font-medium">Cancel</button>
+                <button type="submit" class="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold shadow-lg shadow-rose-200">Submit Ticket</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

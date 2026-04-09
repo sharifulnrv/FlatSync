@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block header %}Trial Balance{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-center">
+    <div>
+        <h2 class="text-3xl font-black text-gray-800">Trial Balance</h2>
+        <p class="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-1">
+            {% if from_date or to_date %}
+                Range: {{ from_date or 'Start' }} to {{ to_date or 'End' }}
+            {% else %}
+                Full Ledger History
+            {% endif %}
+        </p>
+    </div>
+    <div class="flex items-center space-x-4">
+        <form action="{{ url_for('reports.trial_balance') }}" method="GET" class="flex items-center space-x-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+            <input type="date" name="from_date" value="{{ from_date }}" class="text-[10px] font-bold text-gray-600 bg-gray-50 border-0 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+            <span class="text-[10px] font-black text-gray-300">TO</span>
+            <input type="date" name="to_date" value="{{ to_date }}" class="text-[10px] font-bold text-gray-600 bg-gray-50 border-0 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all">Filter</button>
+        </form>
+        <a href="{{ url_for('reports.export_trial_balance', from_date=from_date, to_date=to_date) }}" class="bg-emerald-600 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center shadow-lg shadow-emerald-100">
+            <i class="fas fa-file-excel mr-2"></i> Export Excel
+        </a>
+        <button onclick="window.print()" class="bg-gray-800 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-900 transition-all flex items-center shadow-lg shadow-gray-200">
+            <i class="fas fa-print mr-2"></i> Print Report
+        </button>
+    </div>
+</div>
+
+<div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100">
+                <th class="px-8 py-5">Account Code</th>
+                <th class="px-8 py-5">Account Name</th>
+                <th class="px-8 py-5 text-right">Debit (৳)</th>
+                <th class="px-8 py-5 text-right">Credit (৳)</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            {% for row in results %}
+            <tr class="hover:bg-gray-50/50 transition-colors">
+                <td class="px-8 py-5 font-mono text-xs text-indigo-500">{{ row.code }}</td>
+                <td class="px-8 py-5 font-bold text-gray-700">{{ row.name }}</td>
+                <td class="px-8 py-5 text-right font-mono text-sm {{ 'text-gray-300' if row.debit == 0 else 'text-gray-800 font-bold' }}">
+                    {{ "{:,.2f}".format(row.debit) if row.debit != 0 else '-' }}
+                </td>
+                <td class="px-8 py-5 text-right font-mono text-sm {{ 'text-gray-300' if row.credit == 0 else 'text-gray-800 font-bold' }}">
+                    {{ "{:,.2f}".format(row.credit) if row.credit != 0 else '-' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="bg-indigo-50/50 border-t-2 border-indigo-100">
+                <td colspan="2" class="px-8 py-6 text-sm font-black uppercase text-indigo-900 tracking-widest text-right">Total Balance</td>
+                <td class="px-8 py-6 text-right font-mono text-lg font-black text-indigo-900 border-l border-indigo-100">
+                    ৳ {{ "{:,.2f}".format(total_debit) }}
+                </td>
+                <td class="px-8 py-6 text-right font-mono text-lg font-black text-indigo-900 border-l border-indigo-100">
+                    ৳ {{ "{:,.2f}".format(total_credit) }}
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+{% if (total_debit - total_credit)|abs > 0.01 %}
+<div class="mt-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl flex items-center text-rose-700">
+    <i class="fas fa-exclamation-triangle text-2xl mr-4"></i>
+    <div>
+        <p class="font-black uppercase text-xs tracking-widest mb-1">Out of Balance</p>
+        <p class="text-sm font-bold">Warning: Total Debits do not equal Total Credits. Difference: ৳ {{ "{:,.2f}".format(total_debit - total_credit) }}</p>
+    </div>
+</div>
+{% else %}
+<div class="mt-8 p-6 bg-emerald-50 border-2 border-emerald-100 rounded-3xl flex items-center text-emerald-700">
+    <i class="fas fa-check-circle text-2xl mr-4"></i>
+    <div>
+        <p class="font-black uppercase text-xs tracking-widest mb-1">Balanced</p>
+        <p class="text-sm font-bold">Ledger is perfectly balanced. All transactions are structurally sound.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

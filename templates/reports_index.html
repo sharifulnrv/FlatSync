@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block header %}Financial Reports{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <!-- Income Statement / P&L Card -->
+    <a href="{{ url_for('reports.pnl_statement') }}" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+        <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-file-invoice text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">Income Statement</h3>
+        <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Detailed summary of revenues, expenses, and net profit over a specific period.</p>
+        <div class="flex items-center text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em]">
+            Review P&L <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Trial Balance Card -->
+    <a href="{{ url_for('reports.trial_balance') }}" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-balance-scale text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">Trial Balance</h3>
+        <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Audit-ready checklist of all account balances to ensure structural ledger integrity.</p>
+        <div class="flex items-center text-blue-600 font-black text-[10px] uppercase tracking-[0.2em]">
+            Examine Balance <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Balance Sheet Card -->
+    <a href="{{ url_for('reports.balance_sheet') }}" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+        <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-chart-pie text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">Balance Sheet</h3>
+        <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Comprehensive statement of Financial Position (Assets vs. Liabilities & Equity).</p>
+        <div class="flex items-center text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em]">
+            Check Position <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Due Report Card -->
+    <a href="{{ url_for('reports.due_report') }}" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+        <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-user-clock text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">Resident Dues</h3>
+        <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">List of all residents with outstanding balances in the 3000-series receivables.</p>
+        <div class="flex items-center text-rose-600 font-black text-[10px] uppercase tracking-[0.2em]">
+            View Dues <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Aging Report Card -->
+    <a href="{{ url_for('reports.ar_aging_report') }}" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+        <div class="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-hourglass-half text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">A/R Aging</h3>
+        <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Analyze outstanding balances grouped by age (30, 60, 90+ days overdue).</p>
+        <div class="flex items-center text-amber-600 font-black text-[10px] uppercase tracking-[0.2em]">
+            Analyze Dues <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Daily Cash Flow Card -->
+    <a href="{{ url_for('reports.daily_cash_report') }}" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group">
+        <div class="w-16 h-16 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-money-check-alt text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-gray-800 mb-2">Daily Liquidity</h3>
+        <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Monitor daily transaction movements across all 3100-series cash and bank accounts.</p>
+        <div class="flex items-center text-slate-600 font-black text-[10px] uppercase tracking-[0.2em]">
+            View Flow <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Bank Ledger Card -->
+    <a href="{{ url_for('reports.ledger_report') }}" class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all group">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-university text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Bank & Cash Ledger</h3>
+        <p class="text-sm text-gray-500 mb-6">Detailed transaction history for specific bank accounts with running balances.</p>
+        <div class="flex items-center text-blue-600 font-bold text-sm uppercase tracking-wider">
+            Examine Ledger <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+        </div>
+    </a>
+
+    <!-- Data Export Card -->
+    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all group">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <i class="fas fa-file-excel text-2xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Data Export</h3>
+        <p class="text-sm text-gray-500 mb-6">Download complete customer and unit datasets in Excel format for offline analysis.</p>
+        <a href="{{ url_for('reports.export_customers') }}" class="flex items-center text-blue-600 font-bold text-sm uppercase tracking-wider">
+            Export to Excel <i class="fas fa-download ml-2 group-hover:translate-y-1 transition-transform"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block header %}Unit & Customer Management{% endblock %}
+
+{% block content %}
+<div class="space-y-12">
+    <!-- Stats Row -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Total Units</p>
+            <p class="text-3xl font-black text-gray-900">{{ units|length }}</p>
+        </div>
+        <div class="bg-emerald-50 p-6 rounded-3xl shadow-sm border border-emerald-100">
+            <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Occupied</p>
+            <p class="text-3xl font-black text-emerald-900">{{ units|selectattr('status', 'equalto', 'occupied')|list|length }}</p>
+        </div>
+        <div class="bg-amber-50 p-6 rounded-3xl shadow-sm border border-amber-100">
+            <p class="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">Vacant</p>
+            <p class="text-3xl font-black text-amber-900">{{ units|selectattr('status', 'equalto', 'vacant')|list|length }}</p>
+        </div>
+        <div class="bg-indigo-50 p-6 rounded-3xl shadow-sm border border-indigo-100">
+            <p class="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Maintenance</p>
+            <p class="text-3xl font-black text-indigo-900">{{ units|selectattr('status', 'equalto', 'maintenance')|list|length }}</p>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-wrap gap-4">
+        <button onclick="toggleModal('addUnitModal')" class="bg-gray-900 text-white px-6 py-3 rounded-2xl font-bold flex items-center hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200">
+            <i class="fas fa-plus mr-2"></i> Register New Unit
+        </button>
+        <button onclick="toggleModal('addCustomerModal')" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+            <i class="fas fa-user-plus mr-2"></i> Add New Resident
+        </button>
+    </div>
+
+    <!-- Units Table -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center">
+            <h2 class="text-xl font-bold text-gray-800">Property Inventory</h2>
+            <div class="relative">
+                <input type="text" placeholder="Search units..." class="pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64">
+                <i class="fas fa-search absolute left-4 top-3 text-gray-400 text-xs"></i>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50 text-xs text-gray-400 uppercase font-black tracking-widest">
+                    <tr>
+                        <th class="px-8 py-5">Unit Info</th>
+                        <th class="px-8 py-5">Resident</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for unit in units %}
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        <td class="px-8 py-6">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center font-black text-gray-400">
+                                    {{ unit.unit_number[:1] }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-800">{{ unit.unit_number }}</p>
+                                    <p class="text-xs text-gray-400">Floor {{ unit.unit_number[2:3] if unit.unit_number|length > 2 else 'G' }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-8 py-6">
+                            {% if unit.resident %}
+                                <a href="{{ url_for('units.customer_profile', id=unit.resident.id) }}" class="group">
+                                    <p class="font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">{{ unit.resident.name }}</p>
+                                    <p class="text-xs text-gray-400">{{ unit.resident.phone }}</p>
+                                </a>
+                            {% else %}
+                                <span class="text-gray-300 italic text-sm">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-8 py-6">
+                            {% if unit.status == 'occupied' %}
+                                <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">Occupied</span>
+                            {% elif unit.status == 'vacant' %}
+                                <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-black uppercase">Vacant</span>
+                            {% else %}
+                                <span class="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-[10px] font-black uppercase">Maintenance</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-8 py-6 text-right space-x-2">
+                            <button onclick="openEditUnit('{{ unit.id }}', '{{ unit.unit_number }}')" class="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="{{ url_for('units.delete_unit', id=unit.id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure?')">
+                                <button type="submit" class="p-2 text-gray-400 hover:text-rose-600 transition-colors">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Unit Modal -->
+<div id="addUnitModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+            <h3 class="text-xl font-bold text-gray-800">Register New Unit</h3>
+            <button onclick="toggleModal('addUnitModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <form action="{{ url_for('units.add_unit') }}" method="POST" class="p-8 space-y-6">
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Unit Number</label>
+                <input type="text" name="unit_number" required placeholder="e.g. A-101" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+            </div>
+            <button type="submit" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-lg">Save Unit</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Unit Modal -->
+<div id="editUnitModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+            <h3 class="text-xl font-bold text-gray-800">Edit Unit</h3>
+            <button onclick="toggleModal('editUnitModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="editUnitForm" method="POST" class="p-8 space-y-6">
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Unit Number</label>
+                <input type="text" name="unit_number" id="edit_unit_number" required class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg">Update Unit</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Resident Modal -->
+<div id="addCustomerModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+            <h3 class="text-xl font-bold text-gray-800">New Resident Onboarding</h3>
+            <button onclick="toggleModal('addCustomerModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <form action="{{ url_for('units.add_customer') }}" method="POST" class="p-8 space-y-6">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="col-span-2">
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
+                    <input type="text" name="name" required class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Phone Number</label>
+                    <input type="text" name="phone" required class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Assign to Unit</label>
+                    <select name="unit_id" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold appearance-none">
+                        <option value="">-- No Assignment --</option>
+                        {% for u in units if u.status == 'vacant' %}
+                        <option value="{{ u.id }}">{{ u.unit_number }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Mailing Address</label>
+                    <textarea name="address" rows="3" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"></textarea>
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg">Complete Onboarding</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleModal(id) {
+        const modal = document.getElementById(id);
+        modal.classList.toggle('hidden');
+    }
+
+    function openEditUnit(id, number) {
+        const form = document.getElementById('editUnitForm');
+        form.action = '/units/edit/' + id;
+        document.getElementById('edit_unit_number').value = number;
+        toggleModal('editUnitModal');
+    }
+</script>
+{% endblock %}

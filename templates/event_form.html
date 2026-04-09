@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block header %}{{ action }} Event{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in duration-500">
+        <div class="bg-indigo-900 p-10 text-white relative">
+            <h2 class="text-3xl font-black mb-2">{{ action }} Event</h2>
+            <p class="text-indigo-300 font-bold uppercase tracking-widest text-[10px]">Provide event details below</p>
+        </div>
+        
+        <form action="{{ url_for('events.edit_event', id=event.id) if action == 'Edit' else url_for('events.add_event') }}" method="POST" class="p-10 space-y-8">
+            <div class="space-y-6">
+                <!-- Event Name -->
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Event Name</label>
+                    <input type="text" name="name" value="{{ event.name if event else '' }}" required 
+                           class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 transition-all"
+                           placeholder="e.g. Annual Picnic 2026">
+                </div>
+
+                <!-- Event Date -->
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Event Date</label>
+                    <input type="date" name="date" value="{{ event.date.strftime('%Y-%m-%d') if event and event.date else '' }}" required
+                           class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 transition-all">
+                </div>
+
+                <!-- Event Status (Only for Edit) -->
+                {% if action == 'Edit' %}
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Event Status</label>
+                    <select name="status" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 transition-all">
+                        <option value="planned" {{ 'selected' if event.status == 'planned' }}>Planned</option>
+                        <option value="active" {{ 'selected' if event.status == 'active' }}>Active</option>
+                        <option value="completed" {{ 'selected' if event.status == 'completed' }}>Completed</option>
+                    </select>
+                </div>
+                {% endif %}
+
+                <!-- Event Description -->
+                <div>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Description</label>
+                    <textarea name="description" rows="4" 
+                              class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800 transition-all"
+                              placeholder="Describe the event purpose and plans...">{{ event.description if event else '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="pt-6 flex space-x-4">
+                <a href="{{ url_for('events.list_events') }}" class="flex-1 px-8 py-5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl font-black uppercase text-xs tracking-widest text-center transition-all">
+                    Cancel
+                </a>
+                <button type="submit" class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-indigo-100 transition-all">
+                    {{ 'Save Changes' if action == 'Edit' else 'Create Event' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

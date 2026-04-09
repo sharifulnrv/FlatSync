@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block header %}A/R Aging Report{% endblock %}
+
+{% block content %}
+<div class="space-y-12">
+    <!-- Filter Bar -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
+        <h2 class="text-xl font-bold text-gray-800">Aging Analysis Filter</h2>
+        <form action="{{ url_for('reports.ar_aging_report') }}" method="GET" class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-black text-gray-400 uppercase">From</span>
+                <input type="date" name="from_date" value="{{ from_date or '' }}" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-black text-gray-400 uppercase">To</span>
+                <input type="date" name="to_date" value="{{ to_date or '' }}" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700">Apply Filters</button>
+            <a href="{{ url_for('reports.export_aging', from_date=from_date, to_date=to_date) }}" class="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center">
+                <i class="fas fa-file-excel mr-2"></i> Export Excel
+            </a>
+            {% if from_date or to_date %}
+            <a href="{{ url_for('reports.ar_aging_report') }}" class="text-gray-400 hover:text-gray-600 ml-2"><i class="fas fa-times-circle"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Summary Header -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-indigo-900 p-8 rounded-3xl text-white shadow-xl">
+            <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Total Outstanding</p>
+            <p class="text-2xl font-black">৳ {{ "{:,.2f}".format(aging_data|sum(attribute='balance')) }}</p>
+        </div>
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">0-30 Days</p>
+            <p class="text-2xl font-black text-emerald-600">
+                ৳ {{ "{:,.2f}".format(aging_data|selectattr('category', 'equalto', '0-30 days')|sum(attribute='balance')) }}
+            </p>
+        </div>
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">31-60 Days</p>
+            <p class="text-2xl font-black text-amber-600">
+                ৳ {{ "{:,.2f}".format(aging_data|selectattr('category', 'equalto', '31-60 days')|sum(attribute='balance')) }}
+            </p>
+        </div>
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">90+ Days</p>
+            <p class="text-2xl font-black text-rose-600">
+                ৳ {{ "{:,.2f}".format(aging_data|selectattr('category', 'equalto', '90+ days')|sum(attribute='balance')) }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Detailed Aging Table -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-8 py-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
+            <h2 class="text-xl font-bold text-gray-800">Accounts Receivable Aging</h2>
+            <div class="flex space-x-2">
+                <button class="bg-white border text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-gray-50"><i class="fas fa-print mr-1"></i> Print</button>
+                <button class="bg-white border text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-gray-50"><i class="fas fa-file-excel mr-1"></i> Export</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50/50 text-[10px] text-gray-400 uppercase font-black tracking-widest">
+                    <tr>
+                        <th class="px-8 py-5">Resident / Unit</th>
+                        <th class="px-8 py-5">First Unpaid</th>
+                        <th class="px-8 py-5">Current Balance</th>
+                        <th class="px-8 py-5">Category</th>
+                        <th class="px-8 py-5 text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for item in aging_data %}
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        <td class="px-8 py-6" colspan="5">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <p class="font-bold text-gray-800">{{ item.customer }}</p>
+                                    <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Unit: {{ item.unit }}</p>
+                                    
+                                    <details class="mt-4 group">
+                                        <summary class="text-[10px] font-black text-indigo-400 uppercase cursor-pointer hover:text-indigo-600 flex items-center">
+                                            <i class="fas fa-list mr-1 group-open:rotate-90 transition-transform"></i> View {{ item.transactions|length }} Unpaid Items
+                                        </summary>
+                                        <div class="mt-4 overflow-hidden rounded-2xl border border-gray-100 max-w-2xl">
+                                            <table class="w-full text-[11px]">
+                                                <thead class="bg-gray-50 text-gray-400 uppercase font-black tracking-widest">
+                                                    <tr>
+                                                        <th class="px-4 py-2">Date</th>
+                                                        <th class="px-4 py-2">Description</th>
+                                                        <th class="px-4 py-2 text-right">Amout</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-50">
+                                                    {% for entry in item.transactions %}
+                                                    <tr>
+                                                        <td class="px-4 py-3 text-gray-400">{{ entry.parent.date.strftime('%d-%m-%y') }}</td>
+                                                        <td class="px-4 py-3 text-gray-700 font-bold">{{ entry.parent.description }}</td>
+                                                        <td class="px-4 py-3 text-right font-mono font-black {{ 'text-emerald-600' if (entry.debit - entry.credit) < 0 else 'text-gray-900' }}">
+                                                            ৳ {{ "{:,.2f}".format(entry.debit - entry.credit) }}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </details>
+                                </div>
+                                <div class="w-32 text-center pt-2">
+                                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter block mb-2
+                                        {{ 'bg-rose-100 text-rose-700' if item.days > 60 else 'bg-amber-100 text-amber-700' if item.days > 30 else 'bg-emerald-100 text-emerald-700' }}">
+                                        {{ item.category }}
+                                    </span>
+                                    <p class="text-[10px] text-gray-400 font-bold">{{ item.days }}d old</p>
+                                </div>
+                                <div class="w-48 text-right pt-2 px-8">
+                                    <p class="text-xl font-black text-gray-900 mb-2">৳ {{ "{:,.2f}".format(item.balance) }}</p>
+                                    <button class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100">Contact</button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

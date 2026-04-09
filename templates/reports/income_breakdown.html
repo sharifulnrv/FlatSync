@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block header %}Income Breakdown & Revenue Analysis{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center space-x-4">
+        <a href="{{ url_for('main.index') }}" class="text-gray-400 hover:text-gray-600 font-bold flex items-center transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i> Dashboard
+        </a>
+        <div class="h-4 w-[1px] bg-gray-200"></div>
+        <span class="text-xs font-black text-gray-400 uppercase tracking-widest">Financial Reporting</span>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
+        <div class="flex items-center px-3 border-r border-gray-100">
+            <i class="fas fa-calendar-alt text-gray-400 mr-2 text-xs"></i>
+            <input type="date" name="start_date" value="{{ start_date }}" class="text-xs font-bold border-none focus:ring-0 p-1 text-gray-600">
+            <span class="mx-2 text-gray-300">-</span>
+            <input type="date" name="end_date" value="{{ end_date }}" class="text-xs font-bold border-none focus:ring-0 p-1 text-gray-600">
+        </div>
+        
+        <select name="account_id" class="text-xs font-black uppercase tracking-widest border-none focus:ring-0 bg-transparent text-gray-500">
+            <option value="">All Categories</option>
+            {% for acc in revenue_accounts %}
+            <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+            {% endfor %}
+        </select>
+        
+        <button type="submit" class="bg-gray-800 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-900 transition-all">
+            Filter
+        </button>
+        <div class="h-6 w-[1px] bg-gray-100 mx-1"></div>
+        <a href="{{ url_for('accounting.record_transaction') }}" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+            <i class="fas fa-plus mr-1"></i> New Revenue
+        </a>
+    </form>
+</div>
+
+<!-- Summary Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-indigo-600 rounded-[2rem] p-8 text-white shadow-xl shadow-indigo-100">
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Total Combined Income</p>
+        <h3 class="text-3xl font-black">৳ {{ "{:,.2f}".format(entries|sum(attribute='credit')) }}</h3>
+        <div class="mt-4 flex items-center text-[10px] font-bold opacity-60">
+            <i class="fas fa-chart-line mr-2"></i> Across {{ entries|length }} Transactions
+        </div>
+    </div>
+    
+    {% for cat in category_summary %}
+    <div class="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm group hover:shadow-md transition-all">
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{{ cat.name }}</p>
+        <h4 class="text-xl font-black text-gray-800">৳ {{ "{:,.2f}".format(cat.total) }}</h4>
+        <div class="mt-4 w-full bg-gray-50 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-indigo-500 h-full transition-all duration-1000" style="width: {{ (cat.total / (entries|sum(attribute='credit') or 1) * 100)|round }}%"></div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Transaction Table -->
+<div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+    <div class="p-8 border-b border-gray-50 flex justify-between items-center">
+        <h3 class="text-sm font-black text-gray-800 uppercase tracking-widest">Detailed Revenue Ledger</h3>
+        <button class="text-emerald-600 text-[10px] font-black uppercase tracking-widest flex items-center hover:text-emerald-700">
+            <i class="fas fa-file-excel mr-2 text-sm"></i> Export as Excel
+        </button>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-gray-50/50 text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">
+                <tr>
+                    <th class="px-8 py-6">Date</th>
+                    <th class="px-8 py-6">Description</th>
+                    <th class="px-8 py-6">Category</th>
+                    <th class="px-8 py-6">Reference / Event</th>
+                    <th class="px-8 py-6 text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for entry in entries %}
+                <tr class="hover:bg-gray-50/30 transition-all group">
+                    <td class="px-8 py-6">
+                        <p class="font-bold text-gray-600 text-xs">{{ entry.parent.date.strftime('%d %b %Y') }}</p>
+                    </td>
+                    <td class="px-8 py-6">
+                        <p class="font-black text-gray-800 text-sm">{{ entry.parent.description }}</p>
+                        <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Ref: {{ entry.parent.reference or 'N/A' }}</p>
+                    </td>
+                    <td class="px-8 py-6">
+                        <span class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                            {{ entry.account.name }}
+                        </span>
+                    </td>
+                    <td class="px-8 py-6">
+                        {% if entry.parent.event %}
+                        <div class="flex items-center space-x-2">
+                            <div class="w-6 h-6 bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center text-[10px]">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <span class="text-xs font-bold text-gray-600">{{ entry.parent.event.name }}</span>
+                        </div>
+                        {% elif entry.parent.monthly_bill %}
+                        <div class="flex items-center space-x-2">
+                            <div class="w-6 h-6 bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center text-[10px]">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </div>
+                            <span class="text-xs font-bold text-gray-600">Unit {{ entry.parent.monthly_bill.unit.unit_number }}</span>
+                        </div>
+                        {% else %}
+                        <span class="text-xs font-bold text-gray-300 italic">General</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-8 py-6 text-right">
+                        <p class="font-black text-gray-800">৳ {{ "{:,.2f}".format(entry.credit) }}</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not entries %}
+    <div class="p-20 text-center">
+        <div class="w-20 h-20 bg-gray-50 text-gray-300 rounded-3xl flex items-center justify-center mx-auto mb-6 text-3xl">
+            <i class="fas fa-search"></i>
+        </div>
+        <h4 class="text-xl font-black text-gray-400 uppercase tracking-widest">No Income Records Found</h4>
+        <p class="text-gray-400 mt-2 text-sm font-bold">Try adjusting your filters or date range.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

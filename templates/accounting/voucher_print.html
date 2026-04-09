@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block header %}Voucher Print{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto p-12 bg-white shadow-2xl rounded-3xl border border-gray-100 mt-8 mb-20 printable-area">
+    <!-- Association Header -->
+    <div class="text-center mb-10 border-b-2 border-slate-900 pb-6">
+        <h1 class="text-3xl font-black uppercase tracking-tight text-slate-800">Assurance Sultan Legacy Flat Owners Association</h1>
+        <p class="text-sm font-bold text-gray-500">23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka</p>
+    </div>
+    <!-- Voucher Header -->
+    <div class="flex justify-between items-start mb-8">
+        <div>
+            <h2 class="text-2xl font-black uppercase text-indigo-600 tracking-tighter">JOURNAL VOUCHER</h2>
+            <p class="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Official Transaction Record</p>
+        </div>
+        <div class="text-right">
+            <p class="text-[10px] font-black text-gray-400 uppercase">Voucher ID</p>
+            <p class="text-lg font-mono font-black text-slate-900">#JV-{{ "%05d"|format(journal.id) }}</p>
+            <p class="text-[10px] font-black text-gray-400 uppercase mt-2">Date</p>
+            <p class="text-sm font-bold text-slate-700">{{ journal.date.strftime('%B %d, %Y') }}</p>
+        </div>
+    </div>
+
+    <!-- Particulars -->
+    <div class="bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
+        <p class="text-[10px] font-black text-indigo-500 uppercase mb-1 tracking-widest">Particulars / Description</p>
+        <p class="text-lg font-bold text-slate-800">{{ journal.description }}</p>
+        {% if journal.reference %}
+        <p class="text-xs text-gray-500 mt-2 font-medium">Reference: <span class="text-indigo-600 font-black">{{ journal.reference }}</span></p>
+        {% endif %}
+    </div>
+
+    <!-- Ledger Table -->
+    <table class="w-full mb-12">
+        <thead>
+            <tr class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                <th class="px-6 py-4 text-left rounded-l-xl">AC Code</th>
+                <th class="px-6 py-4 text-left">Account Name</th>
+                <th class="px-6 py-4 text-right">Debit (৳)</th>
+                <th class="px-6 py-4 text-right rounded-r-xl">Credit (৳)</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for entry in journal.entries %}
+            <tr class="text-xs">
+                <td class="px-6 py-4 font-mono font-bold text-indigo-500">{{ entry.account.code }}</td>
+                <td class="px-6 py-4">
+                    <p class="font-bold text-slate-800">{{ entry.account.name }}</p>
+                    {% if entry.customer %}
+                    <p class="text-[10px] text-gray-400">Resident: {{ entry.customer.name }}</p>
+                    {% elif entry.party %}
+                    <p class="text-[10px] text-gray-400">Party: {{ entry.party.name }}</p>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right font-mono font-bold text-slate-900">
+                    {{ "{:,.2f}".format(entry.debit) if entry.debit > 0 else "-" }}
+                </td>
+                <td class="px-6 py-4 text-right font-mono font-bold text-slate-900">
+                    {{ "{:,.2f}".format(entry.credit) if entry.credit > 0 else "-" }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="bg-indigo-50 text-indigo-900 font-black uppercase text-xs border-t-2 border-indigo-200">
+                <td colspan="2" class="px-6 py-4 rounded-l-xl">Total Amount</td>
+                <td class="px-6 py-4 text-right font-mono">৳ {{ "{:,.2f}".format(total_debit) }}</td>
+                <td class="px-6 py-4 text-right font-mono rounded-r-xl">৳ {{ "{:,.2f}".format(total_credit) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Amount in Words -->
+    <div class="mb-16 italic text-sm text-gray-600 border-b border-dashed border-gray-300 pb-4">
+        <strong>In Words:</strong> <span class="ml-2 uppercase text-xs font-bold" id="words-placeholder">______________________________________________________________________</span>
+    </div>
+
+    <!-- Signature Section -->
+    <div class="grid grid-cols-4 gap-4 mt-20">
+        <div class="text-center">
+            <div class="border-t border-slate-900 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Prepared By</div>
+        </div>
+        <div class="text-center">
+            <div class="border-t border-slate-900 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Checked By</div>
+        </div>
+        <div class="text-center">
+            <div class="border-t border-slate-900 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Authorized By</div>
+        </div>
+        <div class="text-center">
+            <div class="border-t border-slate-900 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Receiver's Signature</div>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-4xl mx-auto mb-20 flex justify-center space-x-4 no-print">
+    <button onclick="downloadPDF()" class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl transition-all flex items-center">
+        <i class="fas fa-file-pdf mr-3"></i> Download as PDF
+    </button>
+    <a href="{{ url_for('accounting.dashboard') }}" class="bg-gray-100 text-gray-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">
+        Back
+    </a>
+</div>
+
+<script>
+    function numberToWords(number) {
+        const first = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        const mad = ['', 'Thousand', 'Million', 'Billion', 'Trillion'];
+
+        let word = '';
+
+        const splitNumber = (num) => {
+            let res = [];
+            while (num > 0) {
+                res.push(num % 1000);
+                num = Math.floor(num / 1000);
+            }
+            return res;
+        };
+
+        const render = (n) => {
+            if (n === 0) return '';
+            let tempWord = '';
+            if (n >= 100) {
+                tempWord += first[Math.floor(n / 100)] + ' Hundred ';
+                n %= 100;
+            }
+            if (n >= 20) {
+                tempWord += tens[Math.floor(n / 10)] + ' ';
+                n %= 10;
+            }
+            if (n > 0) tempWord += first[n] + ' ';
+            return tempWord;
+        };
+
+        let chunks = splitNumber(Math.floor(number));
+        for (let i = 0; i < chunks.length; i++) {
+            if (chunks[i] === 0) continue;
+            word = render(chunks[i]) + mad[i] + ' ' + word;
+        }
+
+        return word.trim() + ' Taka Only';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const amount = {{ total_debit }};
+        const words = numberToWords(amount);
+        const el = document.getElementById('words-placeholder');
+        if (el) el.innerText = words;
+    });
+
+    function downloadPDF() {
+        const element = document.querySelector('.printable-area');
+        const opt = {
+            margin:       0.5,
+            filename:     'Voucher_{{ journal.id }}.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+</script>
+
+<style>
+    @media print {
+        body { padding: 0 !important; }
+        .printable-area { border: none !important; box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; padding: 0 !important; }
+        footer, nav, aside, .no-print { display: none !important; }
+    }
+</style>
+{% endblock %}

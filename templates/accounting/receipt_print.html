@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block header %}Money Receipt{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto p-12 bg-white shadow-2xl rounded-3xl border-4 border-slate-900 mt-8 mb-20 printable-area relative overflow-hidden">
+    <!-- Watermark Pattern -->
+    <div class="absolute inset-0 opacity-[0.03] pointer-events-none select-none flex items-center justify-center rotate-12">
+        <h1 class="text-9xl font-black">PAID</h1>
+    </div>
+
+    <!-- Association Header -->
+    <div class="text-center mb-10 border-b-4 border-slate-900 pb-6">
+        <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">Assurance Sultan Legacy Flat Owners Association</h1>
+        <p class="text-[10px] font-bold text-gray-600">23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka</p>
+    </div>
+    <!-- Watermark Pattern -->
+
+    <!-- Receipt Meta -->
+    <div class="flex justify-between items-center mb-10">
+        <div class="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-sm tracking-widest">
+            MONEY RECEIPT
+        </div>
+        <div class="text-right">
+            <p class="text-[10px] font-black text-gray-400 uppercase">Receipt No</p>
+            <p class="text-xl font-mono font-black text-slate-900">#MR-{{ "%05d"|format(journal.id) }}</p>
+            <p class="text-[10px] font-black text-gray-400 uppercase mt-2">Date</p>
+            <p class="text-sm font-bold text-slate-700">{{ journal.date.strftime('%B %d, %Y') }}</p>
+        </div>
+    </div>
+
+    <!-- Receipt Body -->
+    <div class="space-y-6 text-sm">
+        <div class="flex border-b border-dashed border-slate-300 pb-2">
+            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Received with thanks from:</span>
+            <span class="flex-1 font-black text-slate-900 text-lg uppercase tracking-tight">{{ journal.entries[0].customer.name if journal.entries[0].customer else 'N/A' }}</span>
+        </div>
+
+        <div class="flex border-b border-dashed border-slate-300 pb-2">
+            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Unit Number:</span>
+            <span class="flex-1 font-bold text-slate-800">
+                {% if unit %}
+                UNIT - {{ unit.unit_number }}
+                {% else %}
+                N/A
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="flex border-b border-dashed border-slate-300 pb-2">
+            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Against Particulars:</span>
+            <span class="flex-1 font-medium text-slate-700">
+                {{ journal.description }}
+                {% if bill %}
+                (For {{ bill.month }}/{{ bill.year }})
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="flex border-b border-dashed border-slate-300 pb-2">
+            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Sum of Taka (In Words):</span>
+            <span class="flex-1 font-bold italic text-slate-800" id="words-output">__________________________________________________________________</span>
+        </div>
+    </div>
+
+    <!-- Amount Block -->
+    <div class="mt-12 flex justify-between items-end">
+        <div class="bg-slate-50 border-2 border-slate-900 p-6 rounded-2xl">
+            <span class="text-[10px] font-black text-gray-400 uppercase block mb-1">Total Amount Received</span>
+            <span class="text-4xl font-black text-slate-900 font-mono">৳ {{ "{:,.2f}".format(amount) }}</span>
+        </div>
+
+        <!-- Signature Section -->
+        <div class="w-64 text-center">
+            <div class="mb-12">
+                <!-- Sign space -->
+            </div>
+            <div class="border-t-2 border-slate-900 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-800">Accountant / Manager Signature</div>
+        </div>
+    </div>
+
+    <!-- Footer Note -->
+    <div class="mt-12 text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+        * This is a computer generated receipt and does not require a physical seal *
+    </div>
+</div>
+
+<div class="max-w-3xl mx-auto mb-20 flex justify-center space-x-4 no-print">
+    <button onclick="downloadPDF()" class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl transition-all flex items-center">
+        <i class="fas fa-file-pdf mr-3"></i> Download as PDF
+    </button>
+    {% if event %}
+    <a href="{{ url_for('events.event_detail', id=event.id) }}" class="bg-gray-100 text-gray-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">
+        Back to Event
+    </a>
+    {% else %}
+    <a href="{{ url_for('service_charges.dashboard') }}" class="bg-gray-100 text-gray-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">
+        Back
+    </a>
+    {% endif %}
+</div>
+
+<script>
+    function numberToWords(number) {
+        const first = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        const mad = ['', 'Thousand', 'Million', 'Billion', 'Trillion'];
+
+        let word = '';
+
+        const splitNumber = (num) => {
+            let res = [];
+            while (num > 0) {
+                res.push(num % 1000);
+                num = Math.floor(num / 1000);
+            }
+            return res;
+        };
+
+        const render = (n) => {
+            if (n === 0) return '';
+            let tempWord = '';
+            if (n >= 100) {
+                tempWord += first[Math.floor(n / 100)] + ' Hundred ';
+                n %= 100;
+            }
+            if (n >= 20) {
+                tempWord += tens[Math.floor(n / 10)] + ' ';
+                n %= 10;
+            }
+            if (n > 0) tempWord += first[n] + ' ';
+            return tempWord;
+        };
+
+        let chunks = splitNumber(Math.floor(number));
+        for (let i = 0; i < chunks.length; i++) {
+            if (chunks[i] === 0) continue;
+            word = render(chunks[i]) + mad[i] + ' ' + word;
+        }
+
+        return word.trim() + ' Taka Only';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const amount = {{ amount }};
+        const words = numberToWords(amount);
+        const el = document.getElementById('words-output');
+        if (el) el.innerText = words;
+    });
+
+    function downloadPDF() {
+        const element = document.querySelector('.printable-area');
+        const opt = {
+            margin:       0.5,
+            filename:     'Receipt_{{ journal.id }}.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+</script>
+
+<style>
+    @media print {
+        body { padding: 0 !important; }
+        .printable-area { border-width: 2px !important; box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; padding: 2rem !important; }
+        footer, nav, aside, .no-print { display: none !important; }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block header %}New Ledger Entry{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden">
+        <!-- Intelligent Header -->
+        <div class="bg-indigo-600 p-10 text-white relative">
+            <div class="relative z-10">
+                <h2 class="text-3xl font-black mb-2">Post Transaction</h2>
+                <p class="text-indigo-100 opacity-80 font-medium">Guided financial recording with entity tracking</p>
+            </div>
+            <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+        </div>
+        
+        <form action="{{ url_for('accounting.record_transaction') }}" method="POST" class="p-12 space-y-10">
+            <!-- 1. Transaction Type Toggle -->
+            <div class="space-y-4">
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Select Transaction Nature</label>
+                <div class="flex p-1.5 bg-gray-100 rounded-2xl gap-1">
+                    <button type="button" onclick="setTxType('in')" id="btn-in" class="flex-1 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all tx-type-btn bg-white shadow-sm text-indigo-600 border border-transparent">
+                        <i class="fas fa-arrow-down-left mr-2"></i> Money In (Receive)
+                    </button>
+                    <button type="button" onclick="setTxType('out')" id="btn-out" class="flex-1 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all tx-type-btn text-gray-400 hover:bg-white/50">
+                        <i class="fas fa-arrow-up-right mr-2"></i> Money Out (Payment)
+                    </button>
+                    <button type="button" onclick="setTxType('adj')" id="btn-adj" class="flex-1 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all tx-type-btn text-gray-400 hover:bg-white/50">
+                        <i class="fas fa-sliders-h mr-2"></i> Adjustment
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <!-- 2. Entity Selection (Resident or Party) -->
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Linked Entity (Required)</label>
+                            <div class="flex bg-gray-100 rounded-lg p-0.5 text-[9px] font-black uppercase">
+                                <button type="button" onclick="setEntityType('resident')" id="ent-res" class="px-3 py-1 rounded-md bg-white shadow-sm text-indigo-600 ent-type-btn">Resident</button>
+                                <button type="button" onclick="setEntityType('party')" id="ent-pty" class="px-3 py-1 rounded-md text-gray-400 ent-type-btn">Third-Party</button>
+                            </div>
+                        </div>
+
+                        <!-- Resident Selector -->
+                        <div id="resident-selector" class="animate-fade-in">
+                            <select name="customer_id" id="customer_id_select" data-searchable class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl font-bold focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Select Resident...</option>
+                                {% for c in customers %}
+                                <option value="{{ c.id }}" {% if selected_customer_id|int == c.id|int %}selected{% endif %}>{{ c.name }} ({{ c.units[0].unit_number if c.units else 'No Unit' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Party Selector -->
+                        <div id="party-selector" class="hidden animate-fade-in">
+                            <select name="party_id" id="party_id_select" data-searchable class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl font-bold focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Select Vendor/Party...</option>
+                                {% for p in parties %}
+                                <option value="{{ p.id }}" data-default-account="{{ p.default_account_code or '' }}" {% if selected_party_id|int == p.id|int %}selected{% endif %}>{{ p.name }} ({{ p.type }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Transaction Date</label>
+                        </div>
+                        <input type="date" name="date" value="{{ today_date_iso }}" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl font-bold focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Amount (৳)</label>
+                        <input type="number" step="0.01" name="amount" required placeholder="0.00" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl font-black text-2xl text-gray-800 focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- 3. Account Interaction -->
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3" id="dr-label">Debit account (+)</label>
+                        <select name="dr_account" id="dr_account" required data-searchable class="w-full px-5 py-4 bg-emerald-50 border-0 rounded-2xl font-bold focus:ring-2 focus:ring-emerald-500">
+                            {% for acc in accounts %}
+                            <option value="{{ acc.code }}" data-type="{{ acc.code[:2] }}">{{ acc.code }} - {{ acc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-rose-600 uppercase tracking-widest mb-3" id="cr-label">Credit account (-)</label>
+                        <select name="cr_account" id="cr_account" required data-searchable class="w-full px-5 py-4 bg-rose-50 border-0 rounded-2xl font-bold focus:ring-2 focus:ring-rose-500">
+                            {% for acc in accounts %}
+                            <option value="{{ acc.code }}" data-type="{{ acc.code[:2] }}">{{ acc.code }} - {{ acc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Metadata & Memo -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Memo / Description</label>
+                        <textarea name="description" required rows="2" placeholder="Describe the purpose of this entry..." class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Dynamic Month Selection -->
+                    <div id="serviceMonthSection" class="hidden animate-fade-in">
+                        <label class="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">Billing Period</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <select name="month" class="bg-indigo-50 border-0 rounded-2xl px-5 py-4 font-bold text-sm focus:ring-2 focus:ring-indigo-500">
+                                <option value="">-- Month --</option>
+                                {% for m in months %}
+                                <option value="{{ m }}">{{ m }}</option>
+                                {% endfor %}
+                            </select>
+                            <select name="year" class="bg-indigo-50 border-0 rounded-2xl px-5 py-4 font-bold text-sm focus:ring-2 focus:ring-indigo-500">
+                                <option value="{{ current_year }}">{{ current_year }}</option>
+                                <option value="{{ current_year - 1 }}">{{ current_year - 1 }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Event Selection -->
+                    <div id="eventLinkSection" class="hidden animate-fade-in">
+                        <label class="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">Linked Event</label>
+                        <input type="hidden" name="event_id" id="event_id_input" value="{{ selected_event_id or '' }}">
+                        <button type="button" onclick="toggleModal('eventSelectionModal')" class="w-full bg-indigo-50 text-indigo-600 px-6 py-4 rounded-2xl font-bold text-sm border-2 border-transparent hover:border-indigo-100 transition-all text-left flex justify-between items-center">
+                            <span id="event_name_display">
+                                {% if selected_event_id %}
+                                    {% for e in events %}{% if e.id == selected_event_id %}{{ e.name }}{% endif %}{% endfor %}
+                                {% else %}
+                                    -- Link Event --
+                                {% endif %}
+                            </span>
+                            <i class="fas fa-chevron-right text-xs opacity-50"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-10 border-t border-gray-100 flex items-center justify-between">
+                <a href="{{ url_for('accounting.dashboard') }}" class="text-xs font-black text-gray-400 uppercase hover:text-gray-600">Discard Entry</a>
+                <button type="submit" class="bg-indigo-600 text-white px-12 py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
+                    Post Transaction
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Event Selection Modal (Reused) -->
+<div id="eventSelectionModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in">
+        <div class="p-10 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+            <h3 class="text-2xl font-black text-indigo-900">Select Event</h3>
+            <button onclick="toggleModal('eventSelectionModal')" class="text-indigo-300 hover:text-indigo-600"><i class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="p-6 max-h-[400px] overflow-y-auto space-y-2">
+            <button type="button" onclick="selectEvent('', '-- Link Event --')" class="w-full text-left p-5 hover:bg-gray-50 rounded-3xl border-2 border-transparent transition-all flex items-center group">
+                <div class="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mr-5 text-gray-400 group-hover:bg-indigo-100 group-hover:text-indigo-600">
+                    <i class="fas fa-slash"></i>
+                </div>
+                <p class="font-black text-gray-800">Clear Selection</p>
+            </button>
+            {% for e in events %}
+            <button type="button" onclick="selectEvent('{{ e.id }}', '{{ e.name }}')" class="w-full text-left p-5 hover:bg-indigo-50/50 rounded-3xl border-2 border-transparent hover:border-indigo-100 transition-all flex items-center group">
+                <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mr-5 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <i class="fas fa-calendar-star text-lg"></i>
+                </div>
+                <div>
+                    <p class="font-black text-gray-800">{{ e.name }}</p>
+                    <p class="text-[10px] text-indigo-400 uppercase font-black">{{ e.date.strftime('%B %Y') if e.date else 'Ongoing' }}</p>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    let txType = 'in';
+    let entityType = 'resident';
+
+    function setTxType(type) {
+        txType = type;
+        const btns = document.querySelectorAll('.tx-type-btn');
+        btns.forEach(b => {
+            b.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600', 'border-indigo-100');
+            b.classList.add('text-gray-400');
+        });
+        document.getElementById(`btn-${type}`).classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+        document.getElementById(`btn-${type}`).classList.remove('text-gray-400');
+        
+        applyAccountFilters();
+    }
+
+    function setEntityType(type) {
+        entityType = type;
+        const btns = document.querySelectorAll('.ent-type-btn');
+        btns.forEach(b => {
+            b.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            b.classList.add('text-gray-400');
+        });
+        
+        const btnId = `ent-${type.substring(0, 3)}`;
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btn.classList.remove('text-gray-400');
+        }
+
+        document.getElementById('resident-selector').classList.toggle('hidden', type !== 'resident');
+        document.getElementById('party-selector').classList.toggle('hidden', type !== 'party');
+        
+        // Clear non-active selects to avoid mixed data
+        if (type === 'resident') {
+            const pSel = document.getElementById('party_id_select');
+            if (pSel) pSel.value = "";
+        } else {
+            const cSel = document.getElementById('customer_id_select');
+            if (cSel) cSel.value = "";
+            // Trigger auto-selection for pre-selected party
+            handlePartyChange();
+        }
+    }
+
+    function handlePartyChange() {
+        if (entityType !== 'party') return;
+        const pSel = document.getElementById('party_id_select');
+        const opt = pSel.options[pSel.selectedIndex];
+        if (!opt || !opt.value) return;
+        
+        const defAcc = opt.getAttribute('data-default-account');
+        if (defAcc) {
+            const drSelect = document.getElementById('dr_account');
+            const crSelect = document.getElementById('cr_account');
+            
+            if (txType === 'out') {
+                // For payments, the party's account is usually the EXPENDITURE (Debit)
+                for (let i=0; i<drSelect.options.length; i++) {
+                    if (drSelect.options[i].value === defAcc) {
+                        drSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            } else if (txType === 'in') {
+                // For receipts, the party's account is the SOURCE (Credit)
+                for (let i=0; i<crSelect.options.length; i++) {
+                    if (crSelect.options[i].value === defAcc) {
+                        crSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    document.getElementById('party_id_select').addEventListener('change', handlePartyChange);
+
+    function applyAccountFilters() {
+        const drSelect = document.getElementById('dr_account');
+        const crSelect = document.getElementById('cr_account');
+        const drLabel = document.getElementById('dr-label');
+        const crLabel = document.getElementById('cr-label');
+        const drOptions = drSelect.options;
+        const crOptions = crSelect.options;
+
+        if (txType === 'in') {
+            drLabel.innerHTML = '<i class="fas fa-arrow-right mr-1"></i> Deposit Into (Bank/Cash)';
+            crLabel.innerHTML = '<i class="fas fa-tag mr-1"></i> Income Type (Service/Rent)';
+        } else if (txType === 'out') {
+            drLabel.innerHTML = '<i class="fas fa-tag mr-1"></i> Expense Type (Maintenance/Utility)';
+            crLabel.innerHTML = '<i class="fas fa-arrow-left mr-1"></i> Pay From (Bank/Cash)';
+        } else {
+            drLabel.innerText = 'Debit Account (+)';
+            crLabel.innerText = 'Credit Account (-)';
+        }
+
+        for (let i = 0; i < drOptions.length; i++) {
+            const codeType = drOptions[i].getAttribute('data-type');
+            if (txType === 'in') {
+                // If receiving money, Debit must be Cash/Bank (31xx)
+                drOptions[i].disabled = (codeType !== '31');
+                drOptions[i].style.display = (codeType !== '31') ? 'none' : '';
+            } else {
+                drOptions[i].disabled = false;
+                drOptions[i].style.display = '';
+            }
+        }
+
+        for (let i = 0; i < crOptions.length; i++) {
+            const codeType = crOptions[i].getAttribute('data-type');
+            if (txType === 'out') {
+                // If paying money, Credit must be Cash/Bank (31xx)
+                crOptions[i].disabled = (codeType !== '31');
+                crOptions[i].style.display = (codeType !== '31') ? 'none' : '';
+            } else {
+                crOptions[i].disabled = false;
+                crOptions[i].style.display = '';
+            }
+        }
+        
+        // Auto-select preferred accounts
+        const preferredIn = { dr: '3100', cr: '4100' }; // Cash, Service Charge Revenue
+        const preferredOut = { dr: '5100', cr: '3100' }; // Operating Expense, Cash
+        
+        const prefs = (txType === 'in') ? preferredIn : preferredOut;
+
+        function setBestMatch(select, prefCode) {
+            const options = select.options;
+            let firstValid = -1;
+            let prefIdx = -1;
+            
+            for (let i = 0; i < options.length; i++) {
+                if (!options[i].disabled) {
+                    if (firstValid === -1) firstValid = i;
+                    if (options[i].value === prefCode) prefIdx = i;
+                }
+            }
+            
+            if (prefIdx !== -1) select.selectedIndex = prefIdx;
+            else if (firstValid !== -1) select.selectedIndex = firstValid;
+        }
+
+        if (txType !== 'adj') {
+            setBestMatch(drSelect, prefs.dr);
+            setBestMatch(crSelect, prefs.cr);
+        }
+        
+        updatePrompts();
+    }
+
+    function toggleModal(id) {
+        document.getElementById(id).classList.toggle('hidden');
+    }
+
+    function selectEvent(id, name) {
+        document.getElementById('event_id_input').value = id;
+        document.getElementById('event_name_display').innerText = name;
+        toggleModal('eventSelectionModal');
+    }
+
+    function updatePrompts() {
+        const dr = document.getElementById('dr_account').value;
+        const cr = document.getElementById('cr_account').value;
+        const allCodes = [dr, cr];
+        
+        const serviceCodes = ['3930', '4100'];
+        const eventCodes = ['3150', '3995', '4700', '5800'];
+        
+        const showMonth = allCodes.some(c => serviceCodes.includes(c));
+        const showEvent = allCodes.some(c => eventCodes.includes(c));
+        
+        document.getElementById('serviceMonthSection').classList.toggle('hidden', !showMonth);
+        document.getElementById('eventLinkSection').classList.toggle('hidden', !showEvent);
+    }
+
+    document.querySelectorAll('select[data-searchable]').forEach(s => {
+        s.addEventListener('change', updatePrompts);
+    });
+
+    window.onload = () => { 
+        {% if selected_party_id %}
+            setTxType('out');
+            setEntityType('party'); 
+        {% elif selected_customer_id %}
+            setEntityType('resident');
+            setTxType('in');
+        {% else %}
+            setTxType('in'); 
+            setEntityType('resident'); 
+        {% endif %}
+    };
+</script>
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+{% endblock %}

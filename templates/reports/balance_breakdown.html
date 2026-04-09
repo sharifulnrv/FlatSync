@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block header %}Liquid Balance & Bank Management{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center space-x-4">
+        <a href="{{ url_for('main.index') }}" class="text-gray-400 hover:text-gray-600 font-bold flex items-center transition-colors text-sm">
+            <i class="fas fa-arrow-left mr-2"></i> Hub
+        </a>
+        <div class="h-4 w-[1px] bg-gray-200"></div>
+        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Asset Management</span>
+    </div>
+    
+    <button onclick="toggleModal('addBankModal')" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
+        <i class="fas fa-plus-circle mr-2"></i> Add New Bank/Account
+    </button>
+</div>
+
+<!-- Total Balance Hero -->
+<div class="bg-white rounded-[2.5rem] p-12 mb-8 border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
+    <div>
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Total Liquid Liquidity</p>
+        <h2 class="text-5xl font-black text-gray-800 tracking-tight">৳ {{ "{:,.2f}".format(total) }}</h2>
+        <div class="mt-4 flex items-center space-x-4">
+            <span class="flex items-center text-emerald-500 font-black text-[10px] uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full">
+                <i class="fas fa-check-circle mr-1.5"></i> All Accounts Reconciled
+            </span>
+        </div>
+    </div>
+    <div class="flex -space-x-4">
+        <div class="w-14 h-14 rounded-2xl bg-indigo-50 border-4 border-white flex items-center justify-center text-indigo-600 shadow-sm">
+            <i class="fas fa-university"></i>
+        </div>
+        <div class="w-14 h-14 rounded-2xl bg-emerald-50 border-4 border-white flex items-center justify-center text-emerald-600 shadow-sm">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="w-14 h-14 rounded-2xl bg-amber-50 border-4 border-white flex items-center justify-center text-amber-600 shadow-sm">
+            <i class="fas fa-piggy-bank"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Accounts List -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    {% for acc in details %}
+    <div class="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-all">
+            <form action="{{ url_for('accounting.delete_account', id=acc.id) }}" method="POST" onsubmit="return confirm('Delete this account? This will only work if it has no transactions.');">
+                <button type="submit" class="text-gray-300 hover:text-rose-500 transition-colors">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </form>
+        </div>
+        
+        <div class="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+            {% if 'Bank' in acc.name %} <i class="fas fa-university text-xl"></i> 
+            {% else %} <i class="fas fa-wallet text-xl"></i> {% endif %}
+        </div>
+        
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{{ acc.code }}</p>
+        <h4 class="text-xl font-black text-gray-800 mb-4">{{ acc.name }}</h4>
+        
+        <div class="flex justify-between items-end">
+            <div>
+                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Available Balance</p>
+                <p class="text-2xl font-black {{ 'text-emerald-600' if acc.balance >= 0 else 'text-rose-600' }}">
+                    ৳ {{ "{:,.2f}".format(acc.balance) }}
+                </p>
+            </div>
+            <a href="{{ url_for('accounting.view_ledger', account_id=acc.id) }}" class="text-indigo-500 hover:text-indigo-700 font-black text-[10px] uppercase tracking-widest">
+                Statement <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Bank Modal -->
+<div id="addBankModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+            <h3 class="text-xl font-black text-gray-800">Add Account / Bank</h3>
+            <button onclick="toggleModal('addBankModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form action="{{ url_for('accounting.add_liquid_account') }}" method="POST" class="p-8 space-y-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Account Name</label>
+                <input type="text" name="name" required placeholder="e.g. City Bank - 4401" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Account Code (Unique)</label>
+                <input type="text" name="code" required placeholder="10xx" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-gray-600">
+                <p class="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-widest">Liquid assets should use codes like 1003, 1004, etc.</p>
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                Save Account
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleModal(id) {
+        document.getElementById(id).classList.toggle('hidden');
+    }
+</script>
+{% endblock %}

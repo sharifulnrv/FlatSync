@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block header %}Bill Audit: #{{ bill.id }}{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+    <a href="{{ url_for('service_charges.view_month', year=bill.year, month=bill.month) }}" class="text-gray-400 hover:text-gray-600 font-bold flex items-center transition-colors">
+        <i class="fas fa-arrow-left mr-2"></i> Back to Cycle
+    </a>
+    <div class="flex space-x-4">
+        <button class="bg-white border text-xs px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-gray-50 shadow-sm"><i class="fas fa-file-pdf mr-2"></i> Download Invoice</button>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Bill Summary -->
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+            <div class="flex items-center space-x-4 mb-8">
+                <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                    <i class="fas fa-file-invoice text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-black text-gray-800">{{ date(bill.year, bill.month, 1).strftime('%B %Y') }}</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">Unit {{ bill.unit.unit_number }}</p>
+                </div>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex justify-between p-4 bg-gray-50 rounded-2xl">
+                    <span class="text-xs font-black text-gray-400 uppercase">Status</span>
+                    <span class="{% if bill.status == 'paid' %}text-emerald-600{% else %}text-amber-600{% endif %} font-black text-xs uppercase tracking-widest">
+                        {{ bill.status }}
+                    </span>
+                </div>
+                <div class="flex justify-between p-4 bg-gray-50 rounded-2xl">
+                    <span class="text-xs font-black text-gray-400 uppercase">Service Charge</span>
+                    <span class="font-black text-gray-800">৳ {{ "{:,.2f}".format(bill.amount) }}</span>
+                </div>
+                <div class="flex justify-between p-4 bg-gray-50 rounded-2xl">
+                    <span class="text-xs font-black text-gray-400 uppercase">Penalty</span>
+                    <span class="font-black text-rose-500">৳ {{ "{:,.2f}".format(bill.penalty_amount or 0) }}</span>
+                </div>
+                <div class="pt-4 border-t border-gray-100 flex justify-between px-2">
+                    <span class="text-xs font-black text-gray-800 uppercase">Total Obligation</span>
+                    <span class="text-xl font-black text-gray-800">৳ {{ "{:,.2f}".format(bill.amount + (bill.penalty_amount or 0)) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 p-8 rounded-[2.5rem] shadow-xl text-white">
+            <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Resident Information</h4>
+            <p class="text-lg font-black mb-1">{{ bill.unit.resident.name if bill.unit.resident else 'N/A' }}</p>
+            <p class="text-xs text-slate-400 font-medium mb-4">{{ bill.unit.resident.phone if bill.unit.resident else '' }}</p>
+            <a href="{{ url_for('units.customer_profile', id=bill.customer_id) }}" class="text-indigo-400 text-xs font-black uppercase tracking-widest hover:text-indigo-300 flex items-center">
+                View Full Profile <i class="fas fa-external-link-alt ml-2"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Transaction Timeline -->
+    <div class="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+        <h3 class="text-xl font-black text-gray-800 mb-8 flex items-center">
+            <i class="fas fa-stream mr-3 text-indigo-500"></i> Transaction Audit Trail
+        </h3>
+        
+        <div class="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-indigo-100 before:via-gray-100 before:to-transparent">
+            {% for journal in bill.transactions|sort(attribute='date') %}
+            <div class="relative flex items-center space-x-6">
+                <!-- Dot -->
+                <div class="absolute left-0 w-10 h-10 bg-white border-2 border-indigo-500 rounded-full flex items-center justify-center z-10">
+                    <i class="fas {% if 'Payment' in journal.description %}fa-check-circle text-emerald-500{% elif 'Penalty' in journal.description %}fa-exclamation-circle text-rose-500{% else %}fa-file-invoice text-indigo-500{% endif %} text-xs"></i>
+                </div>
+                
+                <!-- Content -->
+                <a href="{{ url_for('accounting.transaction_details', journal_id=journal.id) }}" class="flex-grow ml-12 bg-gray-50/50 p-6 rounded-3xl border border-gray-100 hover:border-indigo-200 transition-all hover:bg-white group">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">{{ journal.date.strftime('%d %b %Y %H:%M') }}</p>
+                            <p class="font-black text-gray-800 group-hover:text-indigo-600">{{ journal.description }}</p>
+                            <p class="text-xs text-gray-500 font-medium">Ref: {{ journal.reference or 'N/A' }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black text-gray-800">৳ {{ "{:,.2f}".format(journal.entries[0].debit if journal.entries[0].debit > 0 else journal.entries[0].credit) }}</p>
+                            <span class="text-[10px] text-indigo-600 font-black uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded">View Detail</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% else %}
+            <div class="p-12 text-center text-gray-400 italic">
+                No transactions linked to this bill yet.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

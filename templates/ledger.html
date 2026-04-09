@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block header %}Ledger: {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-end mb-8">
+    <div>
+        <h2 class="text-2xl font-extrabold text-gray-800">{{ account.name }}</h2>
+        <p class="text-gray-400 font-mono">Account Code: {{ account.code }} | Type: {{ account.type|upper }}</p>
+    </div>
+    <div class="bg-indigo-600 px-8 py-4 rounded-3xl text-white shadow-xl shadow-indigo-100 flex items-center space-x-4">
+        <div class="p-3 bg-white/20 rounded-2xl text-2xl"><i class="fas fa-balance-scale"></i></div>
+        <div>
+            <p class="text-xs uppercase font-black opacity-70">Current Balance</p>
+            <p class="text-3xl font-black">৳ {{ "{:,.2f}".format(balance) }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-8 py-6 bg-gray-50/50 flex justify-between items-center border-b border-gray-100">
+        <span class="font-bold text-gray-600">Transaction History</span>
+        <div class="flex space-x-2">
+            <button class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50"><i class="fas fa-filter mr-2"></i> Filter</button>
+            <a href="{{ url_for('accounting.export_ledger', account_id=account.id) }}" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-700 flex items-center transition-all">
+                <i class="fas fa-file-excel mr-2"></i> Export Excel
+            </a>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-gray-50 text-xs text-gray-400 uppercase font-bold tracking-widest">
+                <tr>
+                    <th class="px-8 py-5">Date</th>
+                    <th class="px-8 py-5">Description</th>
+                    <th class="px-8 py-5">Reference</th>
+                    <th class="px-8 py-5 text-right">Debit</th>
+                    <th class="px-8 py-5 text-right">Credit</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for entry in entries %}
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                    <td class="px-8 py-5 text-sm text-gray-500 font-medium">{{ entry.parent.date.strftime('%d %b %Y %H:%M') }}</td>
+                    <td class="px-8 py-5">
+                        <p class="font-bold text-gray-800">{{ entry.parent.description }}</p>
+                        {% if entry.customer_id %}
+                        <p class="text-[10px] text-indigo-500 font-black uppercase">Ref: Cus-{{ entry.customer_id }}</p>
+                        {% endif %}
+                    </td>
+                    <td class="px-8 py-5">
+                        <span class="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-500">{{ entry.parent.reference }}</span>
+                    </td>
+                    <td class="px-8 py-5 text-right font-bold text-emerald-600">
+                        {% if entry.debit > 0 %}৳ {{ "{:,.2f}".format(entry.debit) }}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-8 py-5 text-right font-bold text-rose-600">
+                        {% if entry.credit > 0 %}৳ {{ "{:,.2f}".format(entry.credit) }}{% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-8 py-16 text-center text-gray-400 italic">No entries found for this account.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

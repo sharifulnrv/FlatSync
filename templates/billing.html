@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block header %}Manual Monthly Billing{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-12">
+    <!-- Billing Controls -->
+    <div class="bg-gray-900 rounded-3xl p-10 text-white shadow-2xl">
+        <form action="{{ url_for('accounting.generate_charges') }}" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Select Month</label>
+                    <select name="month" class="w-full bg-gray-800 border-0 rounded-2xl px-6 py-4 font-bold focus:ring-2 focus:ring-indigo-500 outline-none">
+                        {% for m in ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
+                        <option value="{{ m }}" {{ 'selected' if m == now_month }}>{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Year</label>
+                    <input type="number" name="year" value="{{ current_year }}" class="w-full bg-gray-800 border-0 rounded-2xl px-6 py-4 font-bold focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Due Date</label>
+                    <input type="date" name="due_date" required class="w-full bg-gray-800 border-0 rounded-2xl px-6 py-4 font-bold focus:ring-2 focus:ring-indigo-500 outline-none text-gray-400">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black uppercase text-sm tracking-widest shadow-lg shadow-indigo-500/20 transition-all">
+                        Generate Bills
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-10 pt-8 border-t border-gray-800 flex flex-wrap justify-between items-center gap-6">
+                <div class="flex items-center space-x-8">
+                    <div class="flex items-center space-x-4">
+                        <input type="checkbox" id="selectAll" class="w-5 h-5 rounded bg-gray-800 border-0 focus:ring-indigo-500 text-indigo-600">
+                        <label for="selectAll" class="text-sm font-bold text-gray-400">Select All Occupied Units</label>
+                    </div>
+                    <div class="relative min-w-[300px]">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                        <input type="text" id="unitSearch" placeholder="Search Unit # or Resident..." class="w-full bg-gray-800 border-0 rounded-2xl pl-10 pr-6 py-3 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none text-white">
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 uppercase tracking-widest font-black">Total Selection: <span id="selectCount" class="text-indigo-400">0</span> Units</p>
+            </div>
+
+            <!-- Units Selection Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-8">
+                {% for item in billing_data %}
+                <label class="group relative cursor-pointer">
+                    <input type="checkbox" name="unit_ids" value="{{ item.unit.id }}" class="unit-checkbox hidden">
+                    <div class="bg-gray-800 p-4 rounded-2xl border-2 border-transparent group-hover:bg-gray-700/50 transition-all unit-card">
+                        <p class="font-black text-lg text-white mb-1">{{ item.unit.unit_number }}</p>
+                        <p class="text-[10px] text-gray-500 uppercase font-black tracking-tighter truncate">{{ item.unit.resident.name }}</p>
+                        <div class="mt-4 pt-3 border-t border-gray-700/50">
+                            <p class="text-[9px] text-gray-500 uppercase">Last Billing</p>
+                            <p class="text-[10px] font-bold {{ 'text-emerald-500' if item.last_charge else 'text-gray-600' }}">
+                                {{ item.last_charge.strftime('%d %b, %Y') if item.last_charge else 'NEVER' }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="absolute top-2 right-2 hidden check-icon">
+                        <i class="fas fa-check-circle text-indigo-500 text-sm"></i>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .unit-checkbox:checked + .unit-card {
+        border-color: #6366f1;
+        background-color: #1e1b4b;
+    }
+    .unit-checkbox:checked ~ .check-icon {
+        display: block;
+    }
+</style>
+
+<script>
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.unit-checkbox');
+    const selectCount = document.getElementById('selectCount');
+
+    function updateCount() {
+        const checked = document.querySelectorAll('.unit-checkbox:checked').length;
+        selectCount.innerText = checked;
+    }
+
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => {
+            cb.checked = selectAll.checked;
+        });
+        updateCount();
+    });
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateCount);
+    });
+
+    // Search Filtering
+    const unitSearch = document.getElementById('unitSearch');
+    const unitCards = document.querySelectorAll('.group.relative.cursor-pointer');
+
+    unitSearch.addEventListener('input', function() {
+        const filter = this.value.toUpperCase();
+        unitCards.forEach(card => {
+            const text = card.innerText.toUpperCase();
+            if (text.indexOf(filter) > -1) {
+                card.style.display = "";
+            } else {
+                card.style.display = "none";
+            }
+        });
+    });
+</script>
+{% endblock %}

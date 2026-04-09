@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block header %}Asset Ledger: {{ asset.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <!-- Asset Summary Card -->
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="bg-gray-900 p-12 text-white">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-4xl font-black mb-2">{{ asset.name }}</h2>
+                    <p class="text-gray-400 font-mono tracking-widest uppercase text-xs">
+                        {{ asset.category.name if asset.category else 'General Asset' }} | ID: #AST-{{ asset.id }}
+                    </p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-black text-indigo-400 uppercase mb-1">Purchase Cost</p>
+                    <p class="text-3xl font-black">৳ {{ "{:,.2f}".format(asset.purchase_cost) }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-12 border-b border-gray-50 flex justify-between items-center bg-indigo-50/20">
+            <div>
+                <p class="text-xs font-black text-gray-400 uppercase mb-1">Current Net Value</p>
+                <p class="text-3xl font-black text-indigo-700">৳ {{ "{:,.2f}".format(asset.current_value) }}</p>
+            </div>
+            <button onclick="toggleModal('addTransactionModal')" class="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center hover:bg-indigo-700 shadow-xl shadow-indigo-200">
+                <i class="fas fa-plus-circle mr-2"></i> Record Transaction
+            </button>
+        </div>
+
+        <div class="p-12">
+            <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-8 border-b pb-2">Transaction History</h3>
+            <div class="space-y-6">
+                {% for entry in asset.transactions|sort(attribute='date', reverse=True) %}
+                <div class="flex justify-between items-center bg-gray-50 p-6 rounded-2xl border border-transparent hover:border-indigo-100 transition-all">
+                    <div class="flex items-center space-x-6">
+                        <div class="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center 
+                            {{ 'text-rose-500' if entry.type == 'maintenance' else 'text-amber-500' if entry.type == 'depreciation' else 'text-emerald-500' }}">
+                            {% if entry.type == 'maintenance' %}<i class="fas fa-tools"></i>
+                            {% elif entry.type == 'depreciation' %}<i class="fas fa-chart-line fa-flip-vertical"></i>
+                            {% elif entry.type == 'sale' %}<i class="fas fa-hand-holding-usd"></i>
+                            {% else %}<i class="fas fa-plus"></i>{% endif %}
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800">{{ entry.description }}</p>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                {{ entry.type }} • {{ entry.date.strftime('%d %B, %Y') }}
+                            </p>
+                        </div>
+                    </div>
+                    <p class="font-mono font-black text-xl {{ 'text-rose-600' if entry.type in ['depreciation', 'sale'] else 'text-gray-900' }}">
+                        {{ '-' if entry.type in ['depreciation', 'sale'] else '+' }} ৳ {{ "{:,.2f}".format(entry.amount) }}
+                    </p>
+                </div>
+                {% else %}
+                <div class="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-100">
+                    <i class="fas fa-history text-4xl text-gray-200 mb-4"></i>
+                    <p class="text-gray-400 italic text-sm">No recorded transactions for this asset.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div id="addTransactionModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+            <h3 class="text-xl font-bold text-gray-800">Record Asset Transaction</h3>
+            <button onclick="toggleModal('addTransactionModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <form action="{{ url_for('assets.add_asset_transaction', id=asset.id) }}" method="POST" class="p-8 space-y-6">
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Transaction Type</label>
+                <select name="type" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                    <option value="maintenance">Maintenance Expense</option>
+                    <option value="depreciation">Value Depreciation</option>
+                    <option value="sale">Partial Sale / Disposal</option>
+                    <option value="appreciation">Value Appreciation</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Description</label>
+                <input type="text" name="description" required placeholder="e.g. Annual Depreciation 2024" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Amount</label>
+                    <input type="number" name="amount" required step="0.01" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Date</label>
+                    <input type="date" name="date" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold">Post Transaction</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleModal(id) {
+        document.getElementById(id).classList.toggle('hidden');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block header %}Service Charge & Payment Management{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+    <div class="md:col-span-1 bg-white p-8 rounded-3xl shadow-sm border border-gray-100 h-fit">
+        <h3 class="text-xl font-black mb-6 text-gray-800">Generate Monthly Bills</h3>
+        
+        <div class="mb-8 p-6 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center shadow-sm">
+            <div class="w-12 h-12 bg-white shadow-md rounded-2xl flex items-center justify-center text-emerald-600 mr-4 animate-bounce">
+                <i class="fas fa-users text-xl"></i>
+            </div>
+            <div>
+                <p class="text-[10px] text-emerald-600 font-black uppercase tracking-widest leading-none mb-1">Ready for Generation</p>
+                <p class="text-xl font-black text-slate-800">{{ occupied_count }} Occupied Units</p>
+            </div>
+        </div>
+
+        {% if occupied_count == 0 %}
+        <div class="mb-8 p-6 bg-rose-50 rounded-3xl border border-rose-100 flex items-start space-x-4">
+            <div class="text-rose-500 mt-1"><i class="fas fa-exclamation-circle text-2xl"></i></div>
+            <div>
+                <p class="text-xs text-rose-800 font-black uppercase tracking-widest mb-1">Action Required</p>
+                <p class="text-xs text-rose-700 font-bold leading-relaxed">
+                    You have 0 occupied units. Please go to <a href="/units" class="underline hover:text-rose-900">Units & Customers</a> and assign a resident to at least one unit before generating bills.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+        <form action="{{ url_for('service_charges.generate_bills') }}" method="POST" class="space-y-6">
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase mb-2">Billing Month</label>
+                <select name="month" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all">
+                    {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {% if m == now_month %}selected{% endif %}>{{ date(2024, m, 1).strftime('%B') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase mb-2">Billing Year</label>
+                <select name="year" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all">
+                    {% for y in range(2023, 2028) %}
+                    <option value="{{ y }}" {% if y == now_year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase mb-2">Standard Amount (৳)</label>
+                <input type="number" name="amount" step="0.01" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all" value="5500" required>
+            </div>
+            <div>
+                <label class="block text-xs font-black text-gray-400 uppercase mb-2">Deadline (Due Date)</label>
+                <input type="date" name="due_date" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all" value="{{ date(now_year, now_month, 10).strftime('%Y-%m-%d') }}" required>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase mb-2">Fixed Penalty (৳)</label>
+                    <input type="number" name="penalty_amount" step="0.01" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all text-sm" value="500" required title="Applied immediately after due date">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase mb-2">Daily Penalty (৳)</label>
+                    <input type="number" name="daily_penalty_amount" step="0.01" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all text-sm" value="10" required title="Added every day past due date">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase mb-2">Month+ Daily (৳)</label>
+                    <input type="number" name="next_month_penalty_amount" step="0.01" class="w-full bg-gray-50 border-none rounded-2xl p-4 focus:ring-2 focus:ring-emerald-500 font-bold transition-all text-sm" value="20" required title="Daily rate if unpaid past billing month">
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center justify-center disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed" {% if occupied_count == 0 %}disabled{% endif %}>
+                <i class="fas fa-magic mr-3"></i> Generate All Bills
+            </button>
+        </form>
+        <p class="mt-6 text-[10px] text-gray-400 font-medium leading-relaxed italic">
+            <i class="fas fa-info-circle mr-1"></i> Running this will create Service Charge tokens for all occupied units and record the initial revenue in the General Ledger.
+        </p>
+    </div>
+
+    <div class="md:col-span-2 space-y-6">
+        <h3 class="text-xl font-black text-gray-800 flex items-center">
+            <i class="fas fa-history mr-3 text-indigo-500"></i> Billing History & Status
+        </h3>
+        
+        {% for year, month, total_bills, total_amount, total_penalty, paid_count in summary %}
+        <a href="{{ url_for('service_charges.view_month', year=year, month=month) }}" class="block bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:border-indigo-200 transition-all hover:translate-x-1 group">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-6">
+                    <div class="bg-indigo-50 text-indigo-600 p-4 rounded-2xl font-black text-center min-w-[80px]">
+                        <p class="text-[10px] uppercase opacity-70">{{ year }}</p>
+                        <p class="text-xl uppercase">{{ date(year, month, 1).strftime('%b') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-lg font-black text-gray-800">{{ date(year, month, 1).strftime('%B %Y') }} Cycle</p>
+                        <div class="flex items-center space-x-4 mt-1">
+                            <span class="text-xs font-bold text-gray-400"><i class="fas fa-file-invoice mr-1"></i> {{ total_bills }} Units</span>
+                            <span class="text-xs font-bold text-emerald-600"><i class="fas fa-check-circle mr-1"></i> {{ paid_count }} Paid</span>
+                            <span class="text-xs font-bold text-rose-500"><i class="fas fa-clock mr-1"></i> {{ total_bills - paid_count }} Due</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xl font-black text-gray-800">৳ {{ "{:,.2f}".format(total_amount + (total_penalty or 0)) }}</p>
+                    <div class="w-48 h-2 bg-gray-100 rounded-full mt-2 overflow-hidden border border-gray-50">
+                        <div class="h-full bg-indigo-500" style="width: {{ (paid_count / total_bills * 100) if total_bills > 0 else 0 }}%"></div>
+                    </div>
+                    <p class="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-widest">{{ ((paid_count / total_bills) * 100)|round|int if total_bills > 0 else 0 }}% Collection Rate</p>
+                </div>
+            </div>
+        </a>
+        {% else %}
+        <div class="bg-white p-12 rounded-3xl border-2 border-dashed border-gray-200 text-center">
+            <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-ghost text-3xl text-gray-200"></i>
+            </div>
+            <p class="text-gray-400 font-bold">No billing cycles found. Use the generator to start.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

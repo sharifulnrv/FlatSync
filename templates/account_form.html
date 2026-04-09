@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block header %}{{ action }} Account{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-8 flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-black text-gray-800">{{ action }} Account</h2>
+            <p class="text-gray-500 text-sm font-medium">Define your financial structure</p>
+        </div>
+        <a href="{{ url_for('accounting.dashboard') }}" class="text-gray-400 hover:text-gray-600 transition-colors">
+            <i class="fas fa-times text-xl"></i>
+        </a>
+    </div>
+
+    <div class="bg-white p-10 rounded-3xl shadow-xl shadow-gray-100/50 border border-gray-100">
+        <form method="POST" class="space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Account Code -->
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Account Code</label>
+                    <input type="text" name="code" value="{{ account.code if account else '' }}" required
+                        class="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl px-6 py-4 text-sm font-bold text-gray-700 outline-none transition-all placeholder:text-gray-300"
+                        placeholder="e.g. 1010">
+                </div>
+
+                <!-- Account Type -->
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Category Type</label>
+                    <select name="type" required
+                        class="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl px-6 py-4 text-sm font-bold text-gray-700 outline-none transition-all cursor-pointer">
+                        <option value="asset" {{ 'selected' if account and account.type == 'asset' }}>Asset</option>
+                        <option value="liability" {{ 'selected' if account and account.type == 'liability' }}>Liability</option>
+                        <option value="equity" {{ 'selected' if account and account.type == 'equity' }}>Equity</option>
+                        <option value="revenue" {{ 'selected' if account and account.type == 'revenue' }}>Revenue</option>
+                        <option value="expense" {{ 'selected' if account and account.type == 'expense' }}>Expense</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Account Name -->
+            <div class="space-y-2">
+                <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Account Name</label>
+                <input type="text" name="name" value="{{ account.name if account else '' }}" required
+                    class="w-full bg-gray-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl px-6 py-4 text-sm font-bold text-gray-700 outline-none transition-all placeholder:text-gray-300"
+                    placeholder="e.g. Cash in Hand">
+            </div>
+
+            <!-- Is Summary / Header -->
+            <div class="flex items-center space-x-4 p-6 bg-indigo-50/30 rounded-2xl border border-indigo-50 group hover:border-indigo-100 transition-all cursor-pointer" 
+                 onclick="document.getElementById('is_summary').click()">
+                <div class="relative inline-block w-12 h-6 transition duration-200 ease-in-out bg-gray-200 rounded-full group-hover:bg-gray-300">
+                    <input type="checkbox" name="is_summary" id="is_summary" {{ 'checked' if account and account.is_summary }}
+                           class="absolute w-6 h-6 bg-white border-4 border-gray-200 rounded-full appearance-none cursor-pointer checked:bg-indigo-600 checked:right-0 checked:border-indigo-600 transition-all duration-200">
+                </div>
+                <div>
+                    <p class="text-sm font-black text-gray-800">Summary Account (Header)</p>
+                    <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">Headers appear as bold categories in reports</p>
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" 
+                    class="w-full bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] py-5 rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all">
+                    {{ action }} Account
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
