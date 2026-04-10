@@ -73,7 +73,11 @@ docs/_build/
 # PyBuilder
 .pybuilder/
 target/
-
+build/
+dist/
+FlatSync.spec
+test.xlsx
+test_excel.py
 # Jupyter Notebook
 .ipynb_checkpoints
 

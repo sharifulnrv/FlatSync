@@ -8,6 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
 </head>
 <body class="bg-gray-50 flex h-screen overflow-hidden">
 
@@ -58,7 +59,7 @@
     <!-- Sidebar -->
     <aside class="w-64 bg-slate-900 text-white flex flex-col h-full shadow-xl text-sm transition-all duration-300">
         <div class="p-6 text-2xl font-black border-b border-slate-800 flex items-center">
-            <i class="fas fa-sync-alt mr-3 text-indigo-500 animate-spin-slow text-xl"></i> FlatSync
+            <img src="{{ url_for('static', filename='logo.png') }}" class="w-8 h-8 mr-3 rounded-lg shadow-lg"> FlatSync
         </div>
         <nav class="flex-grow p-4 space-y-1 overflow-y-auto font-bold tracking-tight">
             <a href="/" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition-all duration-200 group">
@@ -106,7 +107,7 @@
             
             <div class="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
                 <h1 class="text-lg font-black text-slate-900 uppercase tracking-tighter whitespace-nowrap">
-                    Assurance Sultan Legacy Flat Owners Association
+                    {{ company_name }}
                 </h1>
             </div>
 
@@ -331,6 +332,10 @@
                 if (window.pywebview && window.pywebview.api) {
                     e.preventDefault();
                     window.pywebview.api.download_url(anchor.href);
+                    // Show success feedback in the app UI
+                    setTimeout(() => {
+                        showNotification('Report generated successfully!', 'success');
+                    }, 500);
                 }
             }
         });
@@ -351,5 +356,45 @@
         .animate-spin-slow { animation: spin 8s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
+    <!-- Notification Container -->
+    <div id="notification-container" class="fixed bottom-8 right-8 z-[100] flex flex-col space-y-4"></div>
+
+    <script>
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notification-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-indigo-600');
+            const icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+            
+            toast.className = `${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center space-x-3 transform transition-all duration-300 translate-y-20 opacity-0`;
+            toast.innerHTML = `
+                <i class="fas ${icon}"></i>
+                <span class="text-xs font-black uppercase tracking-widest">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-20', 'opacity-0');
+            }, 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Handle Flask Flashed Messages
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    showNotification("{{ message }}", "{{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}");
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
 </body>
 </html>

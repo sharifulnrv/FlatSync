@@ -95,7 +95,7 @@
         </div>
         <h3 class="text-xl font-bold text-gray-800 mb-2">Data Export</h3>
         <p class="text-sm text-gray-500 mb-6">Download complete customer and unit datasets in Excel format for offline analysis.</p>
-        <a href="{{ url_for('reports.export_customers') }}" class="flex items-center text-blue-600 font-bold text-sm uppercase tracking-wider">
+        <a href="{{ url_for('reports.export_customers') }}" onclick="showNotification('Preparing your download...', 'info')" class="flex items-center text-blue-600 font-bold text-sm uppercase tracking-wider">
             Export to Excel <i class="fas fa-download ml-2 group-hover:translate-y-1 transition-transform"></i>
         </a>
     </div>

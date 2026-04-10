@@ -12,7 +12,7 @@
                 <span class="text-gray-500 text-xs">to</span>
                 <input type="date" name="to_date" value="{{ data.to_date or '' }}" class="bg-gray-700 text-white text-xs px-3 py-2 rounded-lg outline-none focus:ring-1 focus:ring-indigo-400">
                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors">Apply Filter</button>
-                <a href="{{ url_for('reports.export_pnl', from_date=data.from_date, to_date=data.to_date) }}" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center">
+                <a href="{{ url_for('reports.export_pnl', from_date=data.from_date, to_date=data.to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center">
                     <i class="fas fa-file-excel mr-2"></i> Export Excel
                 </a>
                 {% if data.from_date or data.to_date %}

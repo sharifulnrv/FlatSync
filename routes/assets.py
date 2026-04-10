@@ -35,6 +35,28 @@ def add_category():
         flash('Category added', 'success')
     return redirect(url_for('assets.list_assets'))
 
+@assets_bp.route('/assets/categories/edit/<int:id>', methods=['POST'])
+def edit_category(id):
+    category = AssetCategory.query.get_or_404(id)
+    name = request.form.get('name')
+    if name:
+        category.name = name
+        db.session.commit()
+        flash('Category updated', 'success')
+    return redirect(url_for('assets.list_assets'))
+
+@assets_bp.route('/assets/categories/delete/<int:id>', methods=['POST'])
+def delete_category(id):
+    category = AssetCategory.query.get_or_404(id)
+    # Check if any assets are linked to this category
+    if category.assets:
+        flash('Cannot delete category with linked assets', 'error')
+    else:
+        db.session.delete(category)
+        db.session.commit()
+        flash('Category deleted', 'success')
+    return redirect(url_for('assets.list_assets'))
+
 @assets_bp.route('/assets/edit/<int:id>', methods=['POST'])
 def edit_asset(id):
     asset = Asset.query.get_or_404(id)

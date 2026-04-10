@@ -3,17 +3,34 @@ from config import Config
 from models import db, User, Account
 from flask_migrate import Migrate
 from flask_login import LoginManager
+import traceback
+import logging
+from datetime import datetime
 
 migrate = Migrate()
 login = LoginManager()
 
+import sys
+import os
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 def create_app(config_class=Config):
-    app = Flask(__name__)
+    app = Flask(__name__, 
+                template_folder=resource_path('templates'),
+                static_folder=resource_path('static'))
     app.config.from_object(config_class)
 
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
+    app.config['PROPAGATE_EXCEPTIONS'] = True
 
     with app.app_context():
         # Create tables if they don't exist
@@ -23,10 +40,21 @@ def create_app(config_class=Config):
         # Seed Admin
         seed_admin()
 
+    @app.errorhandler(500)
+    def handle_500(e):
+        with open("error.log", "a") as f:
+            f.write(f"\n--- ERROR AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        return "Internal Server Error (Logged)", 500
+
     @app.context_processor
-    def inject_now():
+    def inject_global_data():
         from datetime import datetime
-        return {'today_date': datetime.now().strftime('%d %b %Y')}
+        return {
+            'today_date': datetime.now().strftime('%d %b %Y'),
+            'company_name': app.config.get('COMPANY_NAME'),
+            'company_address': app.config.get('COMPANY_ADDRESS')
+        }
 
     # Register Blueprints
     from routes.main import main_bp
@@ -104,6 +132,9 @@ def load_user(id):
 import webview
 import threading
 import webbrowser
+import sys
+import os
+from pathlib import Path
 
 class JSAPI:
     def download_url(self, url):
@@ -115,6 +146,26 @@ class JSAPI:
 def run_server(app):
     app.run(port=5999, debug=False, use_reloader=False)
 
+def wait_for_server(window):
+    """ Poll the server until it's ready, then switch from loading screen to app """
+    import time
+    import http.client
+    
+    while True:
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", 5999)
+            conn.request("GET", "/")
+            response = conn.getresponse()
+            if response.status == 200:
+                print("Server is ready, transitioning UI...")
+                window.load_url('http://127.0.0.1:5999')
+                break
+        except Exception:
+            time.sleep(0.5)
+        finally:
+            try: conn.close()
+            except: pass
+
 if __name__ == '__main__':
     app = create_app()
     api = JSAPI()
@@ -124,9 +175,18 @@ if __name__ == '__main__':
     server_thread.daemon = True
     server_thread.start()
     
-    # Launch Desktop Window
-    webview.create_window('FlatSync', 'http://127.0.0.1:5999', 
-                          js_api=api,
-                          width=1400, height=900, 
-                          resizable=True)
+    # Launch Desktop Window with Loading Screen first
+    loading_path = resource_path('templates/loading.html')
+    # Use URI for local file loading in EXE
+    loading_screen = Path(loading_path).as_uri()
+    
+    window = webview.create_window('FlatSync', 
+                                  url=loading_screen,
+                                  js_api=api,
+                                  width=1400, height=900, 
+                                  resizable=True)
+    
+    # Start transition thread
+    threading.Thread(target=wait_for_server, args=(window,), daemon=True).start()
+    
     webview.start()

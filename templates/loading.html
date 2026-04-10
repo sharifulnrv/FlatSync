@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlatSync - Loading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @keyframes pulse-custom {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        .animate-pulse-custom {
+            animation: pulse-custom 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 flex items-center justify-center h-screen overflow-hidden">
+    <div class="text-center">
+        <!-- Logo Container -->
+        <div class="relative inline-block mb-8">
+            <div class="w-24 h-24 bg-indigo-600 rounded-3xl shadow-2xl flex items-center justify-center animate-pulse-custom">
+                <i class="fas fa-sync-alt text-white text-4xl"></i>
+            </div>
+            <!-- Glow Effect -->
+            <div class="absolute inset-0 bg-indigo-500 blur-2xl opacity-20 -z-10 animate-pulse"></div>
+        </div>
+
+        <h1 class="text-3xl font-black text-white tracking-tight mb-2">FlatSync</h1>
+        <p class="text-slate-400 font-bold text-xs uppercase tracking-[0.3em] mb-8">Synchronizing Your Properties</p>
+        
+        <!-- Loading Bar Container -->
+        <div class="w-48 h-1 bg-slate-800 rounded-full mx-auto overflow-hidden relative">
+            <div class="absolute inset-0 bg-indigo-500 rounded-full shimmer" style="width: 60%"></div>
+        </div>
+        
+        <p class="mt-4 text-slate-500 text-[10px] font-black uppercase tracking-widest animate-pulse">Initializing Secure Server...</p>
+    </div>
+
+    <!-- Background Decoration -->
+    <div class="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden -z-20">
+        <div class="absolute -top-24 -left-24 w-96 h-96 bg-indigo-900/10 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-900/10 rounded-full blur-3xl"></div>
+    </div>
+</body>
+</html>

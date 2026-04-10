@@ -1,9 +1,20 @@
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, render_template, request, send_file, current_app
 from models import db, Account, LedgerEntry, Customer, Unit, JournalEntry
+import traceback
 from sqlalchemy import func
 import openpyxl
+from openpyxl.utils import get_column_letter
 from io import BytesIO
 from datetime import datetime
+from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
+
+# Centralized Excel Styles for Consistency
+TITLE_FONT = Font(size=16, bold=True, color="1E293B")
+ADDR_FONT = Font(size=10, color="64748B")
+REPORT_TITLE_FONT = Font(size=12, bold=True, color="4F46E5")
+HEADER_FILL = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+HEADER_FONT = Font(color="FFFFFF", bold=True)
+THIN_BORDER = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -23,6 +34,22 @@ def get_dates():
     t_date = datetime.strptime(t_str, '%Y-%m-%d')
     
     return f_date, t_date, f_str, t_str
+
+def autosize_workbook(ws, min_width=15, skip_rows=4):
+    """Safely autosize columns in an openpyxl worksheet."""
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column
+        column_letter = get_column_letter(column)
+        
+        for cell in col:
+            if cell.row <= skip_rows: continue
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        ws.column_dimensions[column_letter].width = max(max_length + 5, min_width)
 
 @reports_bp.route('/reports/aging')
 def ar_aging_report():
@@ -309,46 +336,51 @@ def service_revenue_report():
                            selected_month=month, selected_year=year, months=months)
 @reports_bp.route('/reports/export/customers')
 def export_customers():
-    # Fetch units with residents
-    units = Unit.query.all()
-    
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Property Inventory"
-    
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    
-    # Association styling
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
-    # Association Branding
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
-    ws.append(["PROPERTY INVENTORY REPORT"])
-    ws.append([])
-    
-    # Merge and center Branding
-    last_col = "E"
-    ws.merge_cells(f'A1:{last_col}1')
-    ws.merge_cells(f'A2:{last_col}2')
-    ws.merge_cells(f'A3:{last_col}3')
-    
-    for row_idx in [1, 2, 3]:
-        cell = ws.cell(row=row_idx, column=1)
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+    try:
+        # Fetch units with residents
+        units = Unit.query.all()
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Property Inventory"
+        
+        # Association styling
+        # Styles now centralized at module level
+        
+        # Association Branding
+        company_name = current_app.config.get('COMPANY_NAME', 'Association')
+        company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+        ws.append([company_name])
+        ws.append([company_address])
+        ws.append(["PROPERTY INVENTORY REPORT"])
+        ws.append([])
+        
+        # Branding Header (Standardized merge)
+        last_col = "G"
+        ws.merge_cells(f'A1:{last_col}1')
+        ws.merge_cells(f'A2:{last_col}2')
+        ws.merge_cells(f'A3:{last_col}3')
+        
+        for row_idx in [1, 2, 3]:
+            cell = ws.cell(row=row_idx, column=1)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            if row_idx == 1: cell.font = TITLE_FONT
+            elif row_idx == 2: cell.font = ADDR_FONT
+            else: cell.font = REPORT_TITLE_FONT
+    except Exception as e:
+        import traceback
+        with open("error.log", "a") as f:
+            f.write(f"\n--- CUSTOMER EXPORT ERROR AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
 
     # Modern Header Row (Row 5)
     headers = ["Unit Number", "Status", "Resident Name", "Phone", "Mailing Address"]
     ws.append(headers)
     
-    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    header_fill = HEADER_FILL
+    header_font = HEADER_FONT
+    thin_border = THIN_BORDER
     
     for cell in ws[5]:
         cell.fill = header_fill
@@ -363,10 +395,7 @@ def export_customers():
         res_addr = unit.resident.address if unit.resident else "N/A"
         ws.append([unit.unit_number, unit.status.title(), res_name, res_phone, res_addr])
 
-    # Autosize columns
-    for column_cells in ws.columns:
-        length = max(len(str(cell.value)) for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = length + 5
+    autosize_workbook(ws)
 
     output = BytesIO()
     wb.save(output)
@@ -377,36 +406,41 @@ def export_customers():
 
 @reports_bp.route('/reports/export/pnl')
 def export_pnl():
-    from_date, to_date, from_date_str, to_date_str = get_dates()
-    
-    revenue_accounts = Account.query.filter_by(type='revenue').order_by(Account.code).all()
-    expense_accounts = Account.query.filter_by(type='expense').order_by(Account.code).all()
-    
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Profit & Loss"
-    
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
-    ws.append(["PROFIT & LOSS STATEMENT"])
-    ws.append([f"Reporting Period: {from_date_str} to {to_date_str}"])
-    ws.append([]) # Spacer
-    
-    # Styling
-    last_col = "B"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
-    for row_idx in [1, 2, 3, 4]:
-        ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
-        cell = ws.cell(row=row_idx, column=1)
-        cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+    try:
+        from_date, to_date, from_date_str, to_date_str = get_dates()
+        
+        revenue_accounts = Account.query.filter_by(type='revenue').order_by(Account.code).all()
+        expense_accounts = Account.query.filter_by(type='expense').order_by(Account.code).all()
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Profit & Loss"
+        
+        # Style definitions inlined or centralized
+        
+        company_name = current_app.config.get('COMPANY_NAME', 'Association')
+        company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+        ws.append([company_name])
+        ws.append([company_address])
+        ws.append(["PROFIT & LOSS STATEMENT"])
+        ws.append([f"Reporting Period: {from_date_str} to {to_date_str}"])
+        ws.append([]) # Spacer
+        
+        # Styling
+        # Branding Header
+        last_col = "G"
+        for row_idx in [1, 2, 3, 4]:
+            ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
+            cell = ws.cell(row=row_idx, column=1)
+            cell.alignment = Alignment(horizontal="center")
+            if row_idx == 1: cell.font = TITLE_FONT
+            elif row_idx == 2: cell.font = ADDR_FONT
+            else: cell.font = REPORT_TITLE_FONT
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- PNL EXPORT ERROR AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
     
     ws.append(["REVENUE"])
     total_rev = 0
@@ -437,6 +471,8 @@ def export_pnl():
     ws.append([])
     ws.append(["NET PROFIT", total_rev - total_exp])
 
+    autosize_workbook(ws)
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -444,32 +480,37 @@ def export_pnl():
 
 @reports_bp.route('/reports/export/trial-balance')
 def export_trial_balance():
-    from_date, to_date, from_date_str, to_date_str = get_dates()
-    all_accounts = Account.query.order_by(Account.code).all()
-    
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Trial Balance"
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
-    ws.append(["TRIAL BALANCE REPORT"])
-    ws.append([f"As Of Period: {from_date_str} to {to_date_str}"])
-    ws.append([])
-    
-    # Styling
-    last_col = "D"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
-    for row_idx in [1, 2, 3, 4]:
-        ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
-        cell = ws.cell(row=row_idx, column=1)
-        cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+    try:
+        from_date, to_date, from_date_str, to_date_str = get_dates()
+        all_accounts = Account.query.order_by(Account.code).all()
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Trial Balance"
+        # Style definitions now centralized at module level
+        company_name = current_app.config.get('COMPANY_NAME', 'Association')
+        company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+        ws.append([company_name])
+        ws.append([company_address])
+        ws.append(["TRIAL BALANCE REPORT"])
+        ws.append([f"As Of Period: {from_date_str} to {to_date_str}"])
+        ws.append([])
+        
+        # Styling
+        # Branding Header
+        last_col = "G"
+        for row_idx in [1, 2, 3, 4]:
+            ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
+            cell = ws.cell(row=row_idx, column=1)
+            cell.alignment = Alignment(horizontal="center")
+            if row_idx == 1: cell.font = TITLE_FONT
+            elif row_idx == 2: cell.font = ADDR_FONT
+            else: cell.font = REPORT_TITLE_FONT
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- TRIAL BALANCE EXPORT ERROR AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
     
     ws.append(["Code", "Account Name", "Debit", "Credit"])
     
@@ -488,6 +529,8 @@ def export_trial_balance():
             t_credit += c
     ws.append(["Total", "TOTAL", t_debit, t_credit])
 
+    autosize_workbook(ws)
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -495,32 +538,37 @@ def export_trial_balance():
 
 @reports_bp.route('/reports/export/balance-sheet')
 def export_balance_sheet():
-    from_date, to_date, from_date_str, to_date_str = get_dates()
-    target_date = to_date # BS is usually as of date, we'll use 'to_date'
-    
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Balance Sheet"
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
-    ws.append(["BALANCE SHEET STATEMENT"])
-    ws.append([f"As Of Date: {to_date_str}"])
-    ws.append([])
-    
-    # Styling
-    last_col = "B"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
-    for row_idx in [1, 2, 3, 4]:
-        ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
-        cell = ws.cell(row=row_idx, column=1)
-        cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+    try:
+        from_date, to_date, from_date_str, to_date_str = get_dates()
+        target_date = to_date # BS is usually as of date, we'll use 'to_date'
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Balance Sheet"
+        # Style definitions now centralized at module level
+        company_name = current_app.config.get('COMPANY_NAME', 'Association')
+        company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+        ws.append([company_name])
+        ws.append([company_address])
+        ws.append(["BALANCE SHEET STATEMENT"])
+        ws.append([f"As Of Date: {to_date_str}"])
+        ws.append([])
+        
+        # Styling
+        # Branding Header
+        last_col = "G"
+        for row_idx in [1, 2, 3, 4]:
+            ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
+            cell = ws.cell(row=row_idx, column=1)
+            cell.alignment = Alignment(horizontal="center")
+            if row_idx == 1: cell.font = TITLE_FONT
+            elif row_idx == 2: cell.font = ADDR_FONT
+            else: cell.font = REPORT_TITLE_FONT
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- BALANCE SHEET EXPORT ERROR AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
     
     def add_section(title, acc_type, is_credit_balance):
         ws.append([title])
@@ -565,6 +613,8 @@ def export_balance_sheet():
     ws.append(["Retained Earnings", re])
     ws.append(["Total Equity", t_equity + re])
 
+    autosize_workbook(ws)
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -586,25 +636,24 @@ def export_ledger():
     ws = wb.active
     ws.title = f"Ledger_{target_account.code}"
     
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
+    # Style definitions now centralized at module level
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+    ws.append([company_name])
+    ws.append([company_address])
     ws.append([f"DETAILED LEDGER REPORT: {target_account.code}"])
     ws.append([f"{target_account.name} | Period: {from_date_str} to {to_date_str}"])
     ws.append([])
     
-    last_col = "F"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
+    # Branding Header
+    last_col = "G"
     for row_idx in [1, 2, 3, 4]:
         ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
         cell = ws.cell(row=row_idx, column=1)
         cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+        if row_idx == 1: cell.font = TITLE_FONT
+        elif row_idx == 2: cell.font = ADDR_FONT
+        else: cell.font = REPORT_TITLE_FONT
     
     ws.append(["Date", "Reference", "Description", "Debit", "Credit", "Balance"])
     
@@ -624,20 +673,34 @@ def export_ledger():
             balance
         ])
 
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"Ledger_{target_account.code}_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+    try:
+        autosize_workbook(ws, skip_rows=4)
+        # The ledger can be long, auto-sizing is essential
+    
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f"Ledger_{target_account.code}_{datetime.now().strftime('%Y-%m-%d')}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- LEDGER EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
 
 @reports_bp.route('/reports/export/aging')
 def export_aging():
     from_date, to_date, from_date_str, to_date_str = get_dates()
     
-    residents = Resident.query.all()
+    residents = Customer.query.all()
     aging_data = []
     
+    ar_acc = Account.query.filter_by(code='3930').first()
+    ar_id = ar_acc.id if ar_acc else None
+    
     for res in residents:
-        q = LedgerEntry.query.join(JournalEntry).filter(LedgerEntry.account_id == 3930, JournalEntry.description.contains(res.name))
+        if not ar_id: continue
+        q = LedgerEntry.query.join(JournalEntry).filter(LedgerEntry.account_id == ar_id, LedgerEntry.customer_id == res.id)
+        # Using customer_id is much more reliable than description.contains(res.name)
         q = q.filter(JournalEntry.date >= from_date)
         q = q.filter(JournalEntry.date <= to_date)
         
@@ -651,35 +714,42 @@ def export_aging():
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "AR Aging"
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
+    # Style definitions now centralized at module level
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+    ws.append([company_name])
+    ws.append([company_address])
     ws.append(["ACCOUNTS RECEIVABLE AGING REPORT"])
     ws.append([f"Aging Basis: {from_date_str} to {to_date_str}"])
     ws.append([])
     
-    last_col = "D"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
+    # Branding Header
+    last_col = "G"
     for row_idx in [1, 2, 3, 4]:
         ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
         cell = ws.cell(row=row_idx, column=1)
         cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+        if row_idx == 1: cell.font = TITLE_FONT
+        elif row_idx == 2: cell.font = ADDR_FONT
+        else: cell.font = REPORT_TITLE_FONT
     
     ws.append(["Customer", "Days Overdue", "Category", "Balance"])
     
     for item in aging_data:
         ws.append([item['customer'], item['days'], item['category'], item['balance']])
         
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"AR_Aging_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+    try:
+        autosize_workbook(ws)
+            
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f"AR_Aging_{datetime.now().strftime('%Y-%m-%d')}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- AGING EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
 
 @reports_bp.route('/reports/export/daily-cash')
 def export_daily_cash():
@@ -693,25 +763,24 @@ def export_daily_cash():
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Daily Cash"
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
+    # Style definitions now centralized at module level
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+    ws.append([company_name])
+    ws.append([company_address])
     ws.append(["DAILY CASH FLOW REPORT"])
     ws.append([f"Audit Period: {from_date_str} to {to_date_str}"])
     ws.append([])
     
-    last_col = "F"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
+    # Branding Header
+    last_col = "G"
     for row_idx in [1, 2, 3, 4]:
         ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
         cell = ws.cell(row=row_idx, column=1)
         cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+        if row_idx == 1: cell.font = TITLE_FONT
+        elif row_idx == 2: cell.font = ADDR_FONT
+        else: cell.font = REPORT_TITLE_FONT
     
     ws.append(["Date", "Account", "Description", "Inflow (+)", "Outflow (-)", "Net"])
     
@@ -720,10 +789,18 @@ def export_daily_cash():
         outflow = e.credit if e.credit > 0 else 0
         ws.append([e.parent.date.strftime('%Y-%m-%d'), e.account.name, e.parent.description, inflow, outflow, inflow - outflow])
         
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"Daily_Cash_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+    try:
+        autosize_workbook(ws)
+            
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f"Daily_Cash_{datetime.now().strftime('%Y-%m-%d')}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- DAILY CASH EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
 
 @reports_bp.route('/reports/export/due-report')
 def export_due_report():
@@ -744,33 +821,40 @@ def export_due_report():
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Due Report"
-    from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
-    ws.append(["Assurance Sultan Legacy Flat Owners Association"])
-    ws.append(["23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka"])
+    # Style definitions now centralized at module level
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+    ws.append([company_name])
+    ws.append([company_address])
     ws.append(["CUSTOMER OUTSTANDING BALANCES"])
     ws.append([f"Reference Period: {from_date_str} to {to_date_str}"])
     ws.append([])
     
-    last_col = "B"
-    title_font = Font(size=16, bold=True, color="1E293B")
-    addr_font = Font(size=10, color="64748B")
-    report_title_font = Font(size=12, bold=True, color="4F46E5")
-    
+    # Branding Header
+    last_col = "G"
     for row_idx in [1, 2, 3, 4]:
         ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
         cell = ws.cell(row=row_idx, column=1)
         cell.alignment = Alignment(horizontal="center")
-        if row_idx == 1: cell.font = title_font
-        elif row_idx == 2: cell.font = addr_font
-        else: cell.font = report_title_font
+        if row_idx == 1: cell.font = TITLE_FONT
+        elif row_idx == 2: cell.font = ADDR_FONT
+        else: cell.font = REPORT_TITLE_FONT
     
     ws.append(["Customer Name", "Outstanding Amount"])
     
-    for name, balance in results:
-        if balance != 0:
-            ws.append([name, balance])
-            
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"Due_Report_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+    try:
+        for name, balance in results:
+            if balance != 0:
+                ws.append([name, balance])
+                
+        autosize_workbook(ws)
+                
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f"Due_Report_{datetime.now().strftime('%Y-%m-%d')}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- DUE REPORT EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e

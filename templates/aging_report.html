@@ -17,7 +17,7 @@
                 <input type="date" name="to_date" value="{{ to_date or '' }}" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
             </div>
             <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700">Apply Filters</button>
-            <a href="{{ url_for('reports.export_aging', from_date=from_date, to_date=to_date) }}" class="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center">
+            <a href="{{ url_for('reports.export_aging', from_date=from_date, to_date=to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center">
                 <i class="fas fa-file-excel mr-2"></i> Export Excel
             </a>
             {% if from_date or to_date %}

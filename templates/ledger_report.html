@@ -31,7 +31,7 @@
                     Generate Ledger
                 </button>
                 {% if target_account %}
-                <a href="{{ url_for('reports.export_ledger', account_id=target_account.id, from_date=from_date, to_date=to_date) }}" class="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg flex items-center">
+                <a href="{{ url_for('reports.export_ledger', account_id=target_account.id, from_date=from_date, to_date=to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg flex items-center">
                     <i class="fas fa-file-excel mr-2 text-base"></i> Export
                 </a>
                 {% endif %}
