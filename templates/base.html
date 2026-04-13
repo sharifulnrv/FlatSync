@@ -69,7 +69,10 @@
                 <i class="fas fa-door-open w-6 group-hover:text-indigo-400"></i> Units & Customers
             </a>
             <a href="/accounting" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition-all duration-200 group">
-                <i class="fas fa-file-invoice-dollar w-6 group-hover:text-indigo-400"></i> Accounting
+                <i class="fas fa-file-invoice-dollar w-6 group-hover:text-indigo-400"></i> Accounting Hub
+            </a>
+            <a href="/accounting/record-payment" class="flex items-center p-3 text-gray-400 hover:bg-slate-800 hover:text-white rounded-lg transition-all duration-200 group text-[11px] pl-6 border-l border-slate-700 ml-4">
+                <i class="fas fa-money-check-alt w-5 group-hover:text-emerald-400"></i> Record Vendor Payment
             </a>
             <a href="{{ url_for('service_charges.dashboard') }}" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition-all duration-200 group bg-slate-800/50 border-l-4 border-emerald-500">
                 <i class="fas fa-hand-holding-usd w-6 text-emerald-400 group-hover:scale-110 transition-transform"></i> Service Charges & Payments
@@ -328,7 +331,7 @@
             
             // Pywebview Download Bridge
             const anchor = e.target.closest('a');
-            if (anchor && anchor.href && (anchor.href.includes('/export/') || anchor.href.endsWith('.xlsx'))) {
+            if (anchor && anchor.href && (anchor.href.includes('/export') || anchor.href.includes('/pdf') || anchor.href.endsWith('.xlsx'))) {
                 if (window.pywebview && window.pywebview.api) {
                     e.preventDefault();
                     window.pywebview.api.download_url(anchor.href);

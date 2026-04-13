@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block header %}Post Vendor Bill / Generate Invoice{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden">
+        <div class="bg-indigo-900 p-12 text-white flex justify-between items-center">
+            <div>
+                <h2 class="text-3xl font-black mb-1 uppercase tracking-tighter">Purchase Invoice</h2>
+                <p class="text-indigo-300 font-bold uppercase tracking-widest text-xs">Record Account Payable</p>
+            </div>
+            <i class="fas fa-file-invoice text-5xl opacity-20"></i>
+        </div>
+
+        <form action="{{ url_for('accounting.post_bill') }}" method="POST" class="p-12 space-y-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <!-- Vendor Selection -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Select Vendor / Party</label>
+                    <select name="party_id" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700 appearance-none">
+                        <option value="">-- Choose Vendor --</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}">{{ s.name }} ({{ s.type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Date -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Invoice Date</label>
+                    <input type="date" name="date" value="{{ today_date }}" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                </div>
+
+                <!-- Expense Account -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Expense Category (Debit)</label>
+                    <select name="expense_account" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                        {% for acc in expense_accounts %}
+                        <option value="{{ acc.code }}">{{ acc.name }} ({{ acc.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Payable Account -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Liability Account (Credit)</label>
+                    <select name="payable_account" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                        {% for acc in payable_accounts %}
+                        <option value="{{ acc.code }}" {% if acc.code == '2100' %}selected{% endif %}>{{ acc.name }} ({{ acc.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Asset Tagging (Optional) -->
+                <div class="space-y-4 md:col-span-2">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Link to Asset (Optional - For Accrual Tracking)</label>
+                    <select name="asset_id" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                        <option value="">-- No Asset Linked --</option>
+                        {% for ast in assets %}
+                        <option value="{{ ast.id }}">{{ ast.name }} ({{ ast.category.name if ast.category else 'Uncategorized' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <!-- Amount -->
+                <div class="md:col-span-1 space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Bill Amount</label>
+                    <div class="relative">
+                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
+                        <input type="number" name="amount" required step="0.01" class="w-full pl-12 pr-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-xl text-gray-800">
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="md:col-span-2 space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Description / Reference</label>
+                    <input type="text" name="description" required placeholder="e.g. Office Supplies Order #123" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                </div>
+            </div>
+
+            <div class="pt-10 flex gap-4">
+                <button type="submit" class="flex-1 bg-indigo-600 text-white py-6 rounded-3xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-[0.98]">
+                    Post Bill & Print Invoice
+                </button>
+                <a href="{{ url_for('accounting.dashboard') }}" class="px-12 bg-gray-100 text-gray-400 py-6 rounded-3xl font-black uppercase text-sm tracking-widest hover:bg-gray-200 transition-all flex items-center justify-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

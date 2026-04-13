@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, send_file, current_app
+from flask import Blueprint, render_template, request, send_file, current_app, redirect, url_for
+from utils.pdf_generator import render_to_pdf
 from models import db, Account, LedgerEntry, Customer, Unit, JournalEntry
 import traceback
 from sqlalchemy import func
@@ -50,6 +51,41 @@ def autosize_workbook(ws, min_width=15, skip_rows=4):
             except:
                 pass
         ws.column_dimensions[column_letter].width = max(max_length + 5, min_width)
+
+@reports_bp.route('/reports/multi-unit-ledger')
+def multi_unit_ledger():
+    from models import Customer, Unit, Account, MonthlyBill
+    from sqlalchemy import func
+    
+    # Get all residents
+    residents = Customer.query.all()
+    
+    ledger_data = []
+    for res in residents:
+        if not res.units: continue
+        
+        unit_balances = []
+        total_res_balance = 0
+        
+        for unit in res.units:
+            unit_due = db.session.query(func.sum(MonthlyBill.amount + MonthlyBill.penalty_amount - MonthlyBill.paid_amount))\
+                .filter(MonthlyBill.unit_id == unit.id, MonthlyBill.status != 'paid').scalar() or 0
+            
+            unit_balances.append({
+                'unit_number': unit.unit_number,
+                'monthly_charge': unit.monthly_charge,
+                'balance': float(unit_due)
+            })
+            total_res_balance += float(unit_due)
+            
+        ledger_data.append({
+            'resident_name': res.name,
+            'phone': res.phone,
+            'units': unit_balances,
+            'total_balance': total_res_balance
+        })
+        
+    return render_template('reports/multi_unit_ledger.html', ledger_data=ledger_data)
 
 @reports_bp.route('/reports/aging')
 def ar_aging_report():
@@ -127,6 +163,10 @@ def daily_cash_report():
     # Detailed query for individual transactions
     q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
 
+    # EXCLUDE Event cash from the main Association Daily Cash report
+    q_stats = q_stats.filter(LedgerEntry.event_id == None)
+    q_details = q_details.filter(LedgerEntry.event_id == None)
+
     q_stats = q_stats.filter(JournalEntry.date >= from_date)
     q_details = q_details.filter(JournalEntry.date >= from_date)
     q_stats = q_stats.filter(JournalEntry.date <= to_date)
@@ -148,6 +188,14 @@ def ledger_report():
     entries = []
     if target_account:
         q = LedgerEntry.query.join(JournalEntry).filter(LedgerEntry.account_id == target_account.id)
+        
+        # Ledger isolation
+        event_id = request.args.get('event_id', type=int)
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
+
         q = q.filter(JournalEntry.date >= from_date)
         q = q.filter(JournalEntry.date <= to_date)
         entries = q.order_by(JournalEntry.date.asc()).all()
@@ -166,16 +214,27 @@ def report_index():
 @reports_bp.route('/reports/pnl')
 def pnl_statement():
     from_date, to_date, from_date_str, to_date_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
     
     revenue_accounts = Account.query.filter_by(type='revenue').order_by(Account.code).all()
     expense_accounts = Account.query.filter_by(type='expense').order_by(Account.code).all()
     
+    from models import Event
+    event = Event.query.get(event_id) if event_id else None
+    
     pnl_data = {'revenue': [], 'expense': [], 'total_revenue': 0, 'total_expense': 0, 
-                'from_date': from_date_str, 'to_date': to_date_str}
+                'from_date': from_date_str, 'to_date': to_date_str, 'event': event}
     
     for acc in revenue_accounts:
         if acc.is_summary: continue
         q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
+        
+        # Filter by event or association
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
+            
         q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
         q = q.filter(JournalEntry.date <= to_date)
             
@@ -188,6 +247,13 @@ def pnl_statement():
     for acc in expense_accounts:
         if acc.is_summary: continue
         q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
+        
+        # Filter by event or association
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
+            
         q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
         q = q.filter(JournalEntry.date <= to_date)
             
@@ -213,7 +279,7 @@ def due_report():
         func.sum(LedgerEntry.debit) - func.sum(LedgerEntry.credit)
     ).join(LedgerEntry, Customer.id == LedgerEntry.customer_id)\
      .join(JournalEntry)\
-     .filter(LedgerEntry.account_id.in_(acc_ids))\
+     .filter(LedgerEntry.account_id.in_(acc_ids), LedgerEntry.event_id == None)\
      .filter(JournalEntry.date >= from_date)\
      .filter(JournalEntry.date <= to_date)\
      .group_by(Customer.id, Customer.name).all()
@@ -229,19 +295,24 @@ def trial_balance():
     total_credit = 0
     
     for acc in all_accounts:
-        if acc.is_summary: continue
+        # Include summary accounts if they have direct postings, but usually they shouldn't.
+        # However, to avoid Trial Balance mismatch when users DO post to them, we MUST include them.
             
-        # Get debit/credit for this account with date filters
+        # Main logic: If not specifically looking for an event, exclude event-linked entries from main Trial Balance
+        event_id = request.args.get('event_id', type=int)
         q = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).filter_by(account_id=acc.id)
-        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
-        q = q.filter(JournalEntry.date <= to_date)
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
+
+        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date, JournalEntry.date <= to_date)
         
         debit, credit = q.first()
-        debit = debit or 0
-        credit = credit or 0
+        debit, credit = (debit or 0), (credit or 0)
         
         if debit != 0 or credit != 0:
-            results.append({'code': acc.code, 'name': acc.name, 'debit': debit, 'credit': credit, 'type': acc.type})
+            results.append({'code': acc.code, 'name': acc.name, 'debit': debit, 'credit': credit, 'type': acc.type, 'is_summary': acc.is_summary})
             total_debit += debit
             total_credit += credit
             
@@ -255,6 +326,7 @@ def trial_balance():
 @reports_bp.route('/reports/balance-sheet')
 def balance_sheet():
     from_date, to_date, from_date_str, to_date_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
     target_date = to_date
 
     assets = []
@@ -271,6 +343,13 @@ def balance_sheet():
         if acc.is_summary: continue
         
         q = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id, JournalEntry.date <= target_date)
+        
+        # Filter by event or association
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
+        
         debit, credit = q.first()
         debit = debit or 0
         credit = credit or 0
@@ -289,9 +368,18 @@ def balance_sheet():
                 total_equity += balance
                 
     # Calculate Retained Earnings (Net Profit from beginning to target_date)
-    rev_q = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit)).join(JournalEntry).join(Account).filter(Account.type == 'revenue', JournalEntry.date <= target_date).scalar() or 0
-    exp_q = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.type == 'expense', JournalEntry.date <= target_date).scalar() or 0
-    retained_earnings = rev_q - exp_q
+    # MUST mirror the event isolation logic
+    rev_q = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit)).join(JournalEntry).join(Account).filter(Account.type == 'revenue', JournalEntry.date <= target_date)
+    exp_q = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.type == 'expense', JournalEntry.date <= target_date)
+    
+    if event_id:
+        rev_q = rev_q.filter(LedgerEntry.event_id == event_id)
+        exp_q = exp_q.filter(LedgerEntry.event_id == event_id)
+    else:
+        rev_q = rev_q.filter(LedgerEntry.event_id == None)
+        exp_q = exp_q.filter(LedgerEntry.event_id == None)
+
+    retained_earnings = (rev_q.scalar() or 0) - (exp_q.scalar() or 0)
     
     if retained_earnings != 0:
         equity.append({'code': 'RE', 'name': 'Retained Earnings (Net Profit)', 'balance': retained_earnings})
@@ -326,7 +414,7 @@ def service_revenue_report():
     other_revs = []
     for acc in rev_accounts:
         amount = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit))\
-            .filter(LedgerEntry.account_id == acc.id).scalar() or 0
+            .filter(LedgerEntry.account_id == acc.id, LedgerEntry.event_id == None).scalar() or 0
         if amount != 0:
             other_revs.append({'name': acc.name, 'amount': amount})
 
@@ -408,6 +496,7 @@ def export_customers():
 def export_pnl():
     try:
         from_date, to_date, from_date_str, to_date_str = get_dates()
+        event_id = request.args.get('event_id', type=int)
         
         revenue_accounts = Account.query.filter_by(type='revenue').order_by(Account.code).all()
         expense_accounts = Account.query.filter_by(type='expense').order_by(Account.code).all()
@@ -447,6 +536,10 @@ def export_pnl():
     for acc in revenue_accounts:
         if acc.is_summary: continue
         q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
         q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
         q = q.filter(JournalEntry.date <= to_date)
         balance = sum(e.credit - e.debit for e in q.all())
@@ -461,8 +554,11 @@ def export_pnl():
     for acc in expense_accounts:
         if acc.is_summary: continue
         q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
-        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
-        q = q.filter(JournalEntry.date <= to_date)
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
+        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date, JournalEntry.date <= to_date)
         balance = sum(e.debit - e.credit for e in q.all())
         if balance != 0:
             ws.append([f"{acc.code} - {acc.name}", balance])
@@ -519,6 +615,11 @@ def export_trial_balance():
     for acc in all_accounts:
         if acc.is_summary: continue
         q = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).filter_by(account_id=acc.id)
+        event_id = request.args.get('event_id', type=int)
+        if event_id:
+            q = q.filter(LedgerEntry.event_id == event_id)
+        else:
+            q = q.filter(LedgerEntry.event_id == None)
         q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
         q = q.filter(JournalEntry.date <= to_date)
         d, c = q.first()
@@ -540,6 +641,7 @@ def export_trial_balance():
 def export_balance_sheet():
     try:
         from_date, to_date, from_date_str, to_date_str = get_dates()
+        event_id = request.args.get('event_id', type=int)
         target_date = to_date # BS is usually as of date, we'll use 'to_date'
         
         wb = openpyxl.Workbook()
@@ -577,6 +679,10 @@ def export_balance_sheet():
         for acc in accounts:
             if acc.is_summary: continue
             q = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id, JournalEntry.date <= target_date)
+            if event_id:
+                q = q.filter(LedgerEntry.event_id == event_id)
+            else:
+                q = q.filter(LedgerEntry.event_id == None)
             d, c = q.first()
             d, c = (d or 0), (c or 0)
             bal = (c - d) if is_credit_balance else (d - c)
@@ -585,33 +691,39 @@ def export_balance_sheet():
                 total += bal
         return total
 
+    # 1. Assets
     t_assets = add_section("ASSETS", "asset", False)
-    ws.append(["Total Assets", t_assets])
+    ws.append(["TOTAL ASSETS", t_assets])
     ws.append([])
     
+    # 2. Liabilities
     t_liabs = add_section("LIABILITIES", "liability", True)
-    ws.append(["Total Liabilities", t_liabs])
+    ws.append(["TOTAL LIABILITIES", t_liabs])
     ws.append([])
     
-    # Equity + Retained Earnings
+    # 3. Retained Earnings (Profit/Loss)
+    rev_q = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit)).join(JournalEntry).join(Account).filter(Account.type == 'revenue', JournalEntry.date <= target_date)
+    exp_q = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.type == 'expense', JournalEntry.date <= target_date)
+    
+    if event_id:
+        rev_q = rev_q.filter(LedgerEntry.event_id == event_id)
+        exp_q = exp_q.filter(LedgerEntry.event_id == event_id)
+    else:
+        rev_q = rev_q.filter(LedgerEntry.event_id == None)
+        exp_q = exp_q.filter(LedgerEntry.event_id == None)
+        
+    net_earnings = (rev_q.scalar() or 0) - (exp_q.scalar() or 0)
+    
+    # 4. Equity
     ws.append(["EQUITY"])
-    t_equity = 0
-    equity_accs = Account.query.filter_by(type='equity').all()
-    for acc in equity_accs:
-        if acc.is_summary: continue
-        q = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id, JournalEntry.date <= target_date)
-        d, c = q.first()
-        bal = (c or 0) - (d or 0)
-        if bal != 0:
-            ws.append([acc.name, bal])
-            t_equity += bal
-            
-    # Retained Earnings
-    rev_q = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit)).join(JournalEntry).join(Account).filter(Account.type == 'revenue', JournalEntry.date <= target_date).scalar() or 0
-    exp_q = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.type == 'expense', JournalEntry.date <= target_date).scalar() or 0
-    re = rev_q - exp_q
-    ws.append(["Retained Earnings", re])
-    ws.append(["Total Equity", t_equity + re])
+    t_equity = add_section("Post-Direct Equity", "equity", True) # Usually empty unless direct equity entries exist
+    ws.append(["Retained Earnings (P&L)", net_earnings])
+    
+    total_equity = t_equity + net_earnings
+    ws.append(["TOTAL EQUITY", total_equity])
+    ws.append([])
+    
+    ws.append(["TOTAL LIABILITIES & EQUITY", t_liabs + total_equity])
 
     autosize_workbook(ws)
 
@@ -755,7 +867,7 @@ def export_aging():
 def export_daily_cash():
     from_date, to_date, from_date_str, to_date_str = get_dates()
     
-    q = LedgerEntry.query.join(Account).filter(Account.code.like('31%'))
+    q = LedgerEntry.query.join(Account).filter(Account.code.like('31%'), LedgerEntry.event_id == None)
     q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
     q = q.filter(JournalEntry.date <= to_date)
     entries = q.order_by(JournalEntry.date.desc()).all()
@@ -813,7 +925,7 @@ def export_due_report():
         func.sum(LedgerEntry.debit) - func.sum(LedgerEntry.credit)
     ).join(LedgerEntry, Customer.id == LedgerEntry.customer_id)\
      .join(JournalEntry)\
-     .filter(LedgerEntry.account_id.in_(acc_ids))\
+     .filter(LedgerEntry.account_id.in_(acc_ids), LedgerEntry.event_id == None)\
      .filter(JournalEntry.date >= from_date)\
      .filter(JournalEntry.date <= to_date)\
      .group_by(Customer.id, Customer.name).all()
@@ -858,3 +970,252 @@ def export_due_report():
             f.write(f"\n--- DUE REPORT EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
             traceback.print_exc(file=f)
         raise e
+@reports_bp.route('/reports/breakdown')
+def account_breakdown():
+    from_date, to_date, from_date_str, to_date_str = get_dates()
+    acc_code = request.args.get('code')
+    
+    if not acc_code:
+        return redirect(url_for('reports.pnl_statement'))
+        
+    account = Account.query.filter_by(code=acc_code).first_or_404()
+    
+    # Base query for ledger entries
+    q = db.session.query(LedgerEntry).join(JournalEntry).filter(LedgerEntry.account_id == account.id)
+    q = q.filter(JournalEntry.date >= from_date, JournalEntry.date <= to_date)
+    
+    # Exclude event transactions from the main breakdown
+    q = q.filter(LedgerEntry.event_id == None)
+    
+    entries = q.all()
+    
+    # Breakdown by Resident (for income)
+    resident_breakdown = {}
+    # Breakdown by Party (for expenses)
+    party_breakdown = {}
+    
+    for entry in entries:
+        if entry.customer_id:
+            res = entry.customer
+            cid = entry.customer_id
+            if cid not in resident_breakdown:
+                resident_breakdown[cid] = {'name': res.name, 'unit': res.units[0].unit_number if res.units else 'N/A', 'total': 0}
+            amount = (entry.credit - entry.debit) if account.type == 'revenue' else (entry.debit - entry.credit)
+            resident_breakdown[cid]['total'] += amount
+            
+        if entry.party_id:
+            pty = entry.party
+            pid = entry.party_id
+            if pid not in party_breakdown:
+                party_breakdown[pid] = {'name': pty.name, 'type': pty.type, 'total': 0}
+            amount = (entry.debit - entry.credit) if account.type == 'expense' else (entry.credit - entry.debit)
+            party_breakdown[pid]['total'] += amount
+
+    total_balance = sum((e.debit - e.credit) if account.type in ['asset', 'expense'] else (e.credit - e.debit) for e in entries)
+
+    return render_template('reports/account_breakdown.html', 
+                            account=account, 
+                            entries=entries, 
+                            resident_breakdown=resident_breakdown.values(),
+                            party_breakdown=party_breakdown.values(),
+                            total_balance=total_balance,
+                            from_date=from_date_str, 
+                            to_date=to_date_str)
+
+@reports_bp.route('/reports/trial-balance/pdf')
+def trial_balance_pdf():
+    from models import Account, LedgerEntry
+    f_date, t_date, f_str, t_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
+    
+    accounts = Account.query.filter(Account.is_summary == False).order_by(Account.code).all()
+    results = []
+    total_debit = 0
+    total_credit = 0
+    
+    for acc in accounts:
+        query = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit))\
+                          .join(JournalEntry)\
+                          .filter(LedgerEntry.account_id == acc.id)
+        if f_date: query = query.filter(JournalEntry.date >= f_date)
+        if t_date: query = query.filter(JournalEntry.date <= t_date)
+        if event_id: query = query.filter(LedgerEntry.event_id == event_id)
+        else: query = query.filter(LedgerEntry.event_id == None)
+        
+        dr, cr = query.first()
+        dr = dr or 0
+        cr = cr or 0
+        if dr != 0 or cr != 0:
+            results.append({'code': acc.code, 'name': acc.name, 'debit': dr, 'credit': cr})
+            total_debit += dr
+            total_credit += cr
+
+    from io import BytesIO
+    pdf_content = render_to_pdf('reports/trial_balance.html', {
+        'results': results, 'total_debit': total_debit, 'total_credit': total_credit,
+        'from_date': f_str, 'to_date': t_str
+    })
+    if pdf_content:
+        return send_file(BytesIO(pdf_content), download_name=f"Trial_Balance_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
+    return "Error", 500
+
+@reports_bp.route('/reports/pnl/pdf')
+def pnl_statement_pdf():
+    from models import Account, LedgerEntry, Event
+    f_date, t_date, f_str, t_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
+    event = Event.query.get(event_id) if event_id else None
+    
+    rev_accs = Account.query.filter(Account.type == 'revenue', Account.is_summary == False).all()
+    exp_accs = Account.query.filter(Account.type == 'expense', Account.is_summary == False).all()
+    
+    revenue_items = []
+    expense_items = []
+    total_revenue = 0
+    total_expense = 0
+    
+    for acc in rev_accs:
+        bal = db.session.query(func.sum(LedgerEntry.credit) - func.sum(LedgerEntry.debit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id)
+        if f_date: bal = bal.filter(JournalEntry.date >= f_date)
+        if t_date: bal = bal.filter(JournalEntry.date <= t_date)
+        if event_id: bal = bal.filter(LedgerEntry.event_id == event_id)
+        else: bal = bal.filter(LedgerEntry.event_id == None)
+        val = bal.scalar() or 0
+        if val != 0:
+            revenue_items.append({'code': acc.code, 'name': acc.name, 'balance': val})
+            total_revenue += val
+            
+    for acc in exp_accs:
+        bal = db.session.query(func.sum(LedgerEntry.debit) - func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id)
+        if f_date: bal = bal.filter(JournalEntry.date >= f_date)
+        if t_date: bal = bal.filter(JournalEntry.date <= t_date)
+        if event_id: bal = bal.filter(LedgerEntry.event_id == event_id)
+        else: bal = bal.filter(LedgerEntry.event_id == None)
+        val = bal.scalar() or 0
+        if val != 0:
+            expense_items.append({'code': acc.code, 'name': acc.name, 'balance': val})
+            total_expense += val
+
+    from io import BytesIO
+    pdf_content = render_to_pdf('pnl_report.html', {
+        'data': {
+            'revenue': revenue_items,
+            'expense': expense_items,
+            'total_revenue': total_revenue,
+            'total_expense': total_expense,
+            'net_profit': total_revenue - total_expense,
+            'from_date': f_str,
+            'to_date': t_str,
+            'event': event
+        }
+    })
+    if pdf_content:
+        return send_file(BytesIO(pdf_content), download_name=f"PnL_Statement_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
+    return "Error", 500
+
+@reports_bp.route('/reports/multi-unit/pdf')
+def multi_unit_ledger_pdf():
+    from models import Customer
+    from io import BytesIO
+    residents = Customer.query.all()
+    ledger_data = []
+    for res in residents:
+        units_data = []
+        total_balance = 0
+        for unit in res.units:
+            bal = db.session.query(func.sum(LedgerEntry.debit) - func.sum(LedgerEntry.credit))\
+                            .filter(LedgerEntry.customer_id == res.id, LedgerEntry.account_id == 14)\
+                            .scalar() or 0
+            units_data.append({'unit_number': unit.unit_number, 'balance': float(bal)})
+            total_balance += float(bal)
+        ledger_data.append({'resident_name': res.name, 'phone': res.phone, 'units': units_data, 'total_balance': total_balance})
+
+    pdf_content = render_to_pdf('reports/multi_unit_ledger.html', {'ledger_data': ledger_data})
+    if pdf_content:
+        return send_file(BytesIO(pdf_content), download_name=f"Multi_Unit_Ledger_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
+    return "Error", 500
+
+@reports_bp.route('/reports/service-revenue/pdf')
+def service_revenue_report_pdf():
+    from io import BytesIO
+    f_date, t_date, f_str, t_str = get_dates()
+    rev_accs = Account.query.filter(Account.code.like('41%'), Account.is_summary == False).all()
+    report_data = []
+    for acc in rev_accs:
+        billed = db.session.query(func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id)
+        paid = db.session.query(func.sum(LedgerEntry.debit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id)
+        if f_date: 
+            billed = billed.filter(JournalEntry.date >= f_date)
+            paid = paid.filter(JournalEntry.date >= f_date)
+        if t_date: 
+            billed = billed.filter(JournalEntry.date <= t_date)
+            paid = paid.filter(JournalEntry.date <= t_date)
+        report_data.append({'account_name': acc.name, 'billed': billed.scalar() or 0, 'paid': paid.scalar() or 0})
+
+    pdf_content = render_to_pdf('reports/service_revenue_report.html', {
+        'data': report_data, 'from_date': f_str, 'to_date': t_str
+    })
+    if pdf_content:
+        return send_file(BytesIO(pdf_content), download_name=f"Service_Revenue_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
+    return "Error", 500
+
+@reports_bp.route('/reports/breakdown/pdf')
+def account_breakdown_pdf():
+    from io import BytesIO
+    acc_id = request.args.get('account_id', type=int)
+    from_date, to_date, f_str, t_str = get_dates()
+    account = Account.query.get_or_404(acc_id)
+    entries = LedgerEntry.query.join(JournalEntry).filter(LedgerEntry.account_id == acc_id).order_by(JournalEntry.date.desc())
+    if from_date: entries = entries.filter(JournalEntry.date >= from_date)
+    if to_date: entries = entries.filter(JournalEntry.date <= to_date)
+    entries = entries.all()
+    
+    total_balance = sum((e.debit - e.credit) if account.type in ['asset', 'expense'] else (e.credit - e.debit) for e in entries)
+    
+    pdf_content = render_to_pdf('reports/account_breakdown.html', {
+        'account': account, 'entries': entries, 'total_balance': total_balance,
+        'from_date': f_str, 'to_date': t_str
+    })
+    if pdf_content:
+        return send_file(BytesIO(pdf_content), download_name=f"Breakdown_{account.name}_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
+    return "Error", 500
+
+@reports_bp.route('/reports/balance-sheet/pdf')
+def balance_sheet_pdf():
+    from io import BytesIO
+    target_date_str = request.args.get('to_date')
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        target_date = datetime.now().date()
+    
+    asset_accs = Account.query.filter(Account.type == 'asset', Account.is_summary == False).all()
+    liab_accs = Account.query.filter(Account.type == 'liability', Account.is_summary == False).all()
+    equity_accs = Account.query.filter(Account.type == 'equity', Account.is_summary == False).all()
+    
+    def get_bal(acc, date):
+        dr = db.session.query(func.sum(LedgerEntry.debit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id, JournalEntry.date <= date).scalar() or 0
+        cr = db.session.query(func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id, JournalEntry.date <= date).scalar() or 0
+        return dr - cr if acc.type in ['asset', 'expense'] else cr - dr
+
+    assets = [{'code': a.code, 'name': a.name, 'balance': get_bal(a, target_date)} for a in asset_accs]
+    liabilities = [{'code': a.code, 'name': a.name, 'balance': get_bal(a, target_date)} for a in liab_accs]
+    equity = [{'code': a.code, 'name': a.name, 'balance': get_bal(a, target_date)} for a in equity_accs]
+    
+    total_assets = sum(a['balance'] for a in assets)
+    total_liabilities = sum(l['balance'] for l in liabilities)
+    total_equity = sum(e['balance'] for e in equity)
+
+    pdf_content = render_to_pdf('reports/balance_sheet.html', {
+        'assets': [a for a in assets if a['balance'] != 0],
+        'liabilities': [l for l in liabilities if l['balance'] != 0],
+        'equity': [e for e in equity if e['balance'] != 0],
+        'total_assets': total_assets,
+        'total_liabilities': total_liabilities,
+        'total_equity': total_equity,
+        'target_date': target_date.strftime('%B %d, %Y'),
+        'to_date': target_date.strftime('%Y-%m-%d')
+    })
+    if pdf_content:
+        return send_file(BytesIO(pdf_content), download_name=f"Balance_Sheet_{target_date.strftime('%Y%m%d')}.pdf", as_attachment=True)
+    return "Error", 500

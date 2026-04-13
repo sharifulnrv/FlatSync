@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-12 px-6">
+    <div class="bg-white rounded-[3rem] shadow-2xl shadow-indigo-100/50 overflow-hidden border border-gray-50">
+        <!-- Header Section -->
+        <div class="bg-gradient-to-br from-indigo-700 to-blue-800 p-12 relative">
+            <div class="absolute top-0 right-0 p-12 opacity-10">
+                <i class="fas fa-money-check-alt text-8xl text-white"></i>
+            </div>
+            <h1 class="text-4xl font-black text-white tracking-tight mb-2 uppercase">Record Vendor Payment</h1>
+            <p class="text-indigo-100/80 font-bold uppercase tracking-widest text-xs">Settle Outstanding Liabilities & Bills</p>
+        </div>
+
+        <form method="POST" class="p-12 space-y-12">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <!-- Vendor Selection -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Select Vendor / Party</label>
+                    <select name="party_id" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                        {% for sub in suppliers %}
+                        <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Apply to Bill (Optional) -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Apply to Open Bill (Optional)</label>
+                    <select name="bill_journal_id" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                        <option value="">-- No Specific Bill (General Payment) --</option>
+                        {% for bill in open_bills %}
+                        <option value="{{ bill.id }}">Bill #{{ bill.id }} - {{ bill.description[:30] }}... (৳{{ "{:,.2f}".format(sum_debits(bill)) }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Date</label>
+                    <input type="date" name="date" value="{{ today_date }}" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                </div>
+
+                <!-- Payable Account (DEBIT - Reducing Liability) -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-rose-500">Liability Account to Clear (Debit)</label>
+                    <select name="payable_account" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                        {% for acc in payable_accounts %}
+                        <option value="{{ acc.code }}" {% if acc.code == '2100' %}selected{% endif %}>{{ acc.name }} ({{ acc.code }})</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[9px] text-gray-400 italic">* This reduces the money you owe this vendor</p>
+                </div>
+
+                <!-- Bank Account (CREDIT - Paying Cash) -->
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-emerald-500">Source of Funds (Credit)</label>
+                    <select name="bank_account" required class="w-full px-6 py-4 bg-emerald-50/30 border-2 border-emerald-100/50 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-emerald-900">
+                        {% for acc in bank_accounts %}
+                        <option value="{{ acc.code }}">{{ acc.name }} ({{ acc.code }})</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[9px] text-emerald-400 italic">* This records the actual cash outflow or bank transfer</p>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Amount</label>
+                    <div class="relative">
+                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
+                        <input type="number" step="0.01" name="amount" required placeholder="0.00" class="w-full pl-12 pr-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono font-bold text-gray-700 text-lg">
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Reference / Remarks</label>
+                    <input type="text" name="description" placeholder="e.g. Paid via Check #1043" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                </div>
+            </div>
+
+            <div class="pt-10 flex space-x-4">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-indigo-600 to-blue-700 text-white font-black py-5 rounded-3xl shadow-xl shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-1 transition-all uppercase tracking-widest text-sm">
+                    Record Payment & Print Receipt
+                </button>
+                <a href="{{ url_for('accounting.dashboard') }}" class="px-10 bg-gray-100 text-gray-400 font-black py-5 rounded-3xl hover:bg-gray-200 transition-all uppercase tracking-widest text-sm flex items-center justify-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

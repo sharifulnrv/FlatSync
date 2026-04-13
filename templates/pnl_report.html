@@ -1,17 +1,27 @@
-{% extends "base.html" %}
+{% extends "pdf_report_base.html" if is_pdf else "base.html" %}
 
 {% block header %}Profit & Loss Statement{% endblock %}
+{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Profit & Loss Statement') }}{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-    <div class="bg-gray-800 p-12 text-white flex justify-between items-center">
+<div class="max-w-4xl mx-auto bg-white {{ 'p-0' if is_pdf else 'rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8' }}">
+    <div class="bg-gray-800 p-12 text-white flex justify-between items-center no-print">
         <div>
-            <h2 class="text-3xl font-black mb-1 uppercase tracking-tighter">Profit & Loss Statement</h2>
-            <form action="{{ url_for('reports.pnl_statement') }}" method="GET" class="flex items-center space-x-4 mt-4">
+            <h2 class="text-3xl font-black mb-1 uppercase tracking-tighter">
+                {% if data.event %}
+                    {{ data.event.name }} - P&L
+                {% else %}
+                    Profit & Loss Statement
+                {% endif %}
+            </h2>
+            <form action="{{ url_for('reports.pnl_statement') }}" method="GET" class="flex items-center space-x-4 mt-4 no-print">
                 <input type="date" name="from_date" value="{{ data.from_date or '' }}" class="bg-gray-700 text-white text-xs px-3 py-2 rounded-lg outline-none focus:ring-1 focus:ring-indigo-400">
                 <span class="text-gray-500 text-xs">to</span>
                 <input type="date" name="to_date" value="{{ data.to_date or '' }}" class="bg-gray-700 text-white text-xs px-3 py-2 rounded-lg outline-none focus:ring-1 focus:ring-indigo-400">
                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors">Apply Filter</button>
+                <a href="{{ url_for('reports.pnl_statement_pdf', from_date=data.from_date, to_date=data.to_date, event_id=data.event.id if data.event) }}" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center">
+                    <i class="fas fa-file-pdf mr-2"></i> Download PDF
+                </a>
                 <a href="{{ url_for('reports.export_pnl', from_date=data.from_date, to_date=data.to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center">
                     <i class="fas fa-file-excel mr-2"></i> Export Excel
                 </a>
@@ -26,82 +36,50 @@
         </div>
     </div>
 
-    <div class="p-12 space-y-12">
+    <div class="{{ 'p-0 space-y-8' if is_pdf else 'p-12 space-y-12' }}">
         <!-- Revenue Section -->
         <div>
-            <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 border-b pb-2">Revenue</h3>
-            <div class="space-y-4">
+            <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 border-b pb-2">Revenue</h3>
+            <div class="space-y-2">
                 {% for item in data.revenue %}
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-gray-600 font-medium">{{ item.name }}</span>
+                    <div class="flex justify-between items-center mb-2 group">
+                        <span class="text-gray-600 font-bold border-b border-white hover:border-indigo-600 transition-all">
+                            {{ item.name }}
+                        </span>
                         <span class="font-black text-gray-900">৳ {{ "{:,.2f}".format(item.balance) }}</span>
                     </div>
-                    <div class="mb-4">
-                        <details class="group">
-                            <summary class="text-[10px] font-black text-indigo-400 uppercase cursor-pointer hover:text-indigo-600 flex items-center">
-                                <i class="fas fa-list mr-1"></i> View Detailed Transactions
-                            </summary>
-                            <table class="w-full mt-4 text-[11px] bg-gray-50/50 rounded-xl overflow-hidden">
-                                <tbody class="divide-y divide-white">
-                                    {% for entry in item.entries %}
-                                    <tr>
-                                        <td class="px-4 py-2 text-gray-400">{{ entry.parent.date.strftime('%d-%m-%y') }}</td>
-                                        <td class="px-4 py-2 text-gray-600 font-bold">{{ entry.parent.description }}</td>
-                                        <td class="px-4 py-2 text-right font-mono font-bold text-gray-800">৳ {{ "{:,.2f}".format(entry.credit - entry.debit if 'revenue' == 'revenue' else entry.debit - entry.credit) }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </details>
-                    </div>
                 {% endfor %}
-                <div class="flex justify-between items-center pt-4 border-t border-dashed border-gray-200 mt-4">
+                <div class="flex justify-between items-center pt-2 border-t border-dashed border-gray-200 mt-2">
                     <span class="font-black text-gray-900 uppercase">Total Revenue</span>
-                    <span class="font-mono text-xl font-black text-gray-900 underline decoration-indigo-500 underline-offset-8">৳ {{ "{:,.2f}".format(data.total_revenue) }}</span>
+                    <span class="font-mono text-lg font-black text-gray-900">৳ {{ "{:,.2f}".format(data.total_revenue) }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Expense Section -->
         <div>
-            <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 border-b pb-2">Expenses</h3>
-            <div class="space-y-4">
+            <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 border-b pb-2">Expenses</h3>
+            <div class="space-y-2">
                 {% for item in data.expense %}
-                    <div class="flex justify-between items-center mb-2 text-rose-600">
-                        <span class="font-medium">{{ item.name }}</span>
-                        <span class="font-black">৳ {{ "{:,.2f}".format(item.balance) }}</span>
-                    </div>
-                    <div class="mb-4">
-                        <details class="group">
-                            <summary class="text-[10px] font-black text-rose-400 uppercase cursor-pointer hover:text-rose-600 flex items-center">
-                                <i class="fas fa-list mr-1"></i> View Detailed Transactions
-                            </summary>
-                            <table class="w-full mt-4 text-[11px] bg-rose-50/50 rounded-xl overflow-hidden">
-                                <tbody class="divide-y divide-white">
-                                    {% for entry in item.entries %}
-                                    <tr>
-                                        <td class="px-4 py-2 text-rose-400/70">{{ entry.parent.date.strftime('%d-%m-%y') }}</td>
-                                        <td class="px-4 py-2 text-rose-800 font-bold">{{ entry.parent.description }}</td>
-                                        <td class="px-4 py-2 text-right font-mono font-bold text-rose-900">৳ {{ "{:,.2f}".format(entry.debit - entry.credit) }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </details>
+                    <div class="flex justify-between items-center mb-2 group">
+                        <span class="text-rose-600 font-bold border-b border-white hover:border-rose-800 transition-all">
+                            {{ item.name }}
+                        </span>
+                        <span class="font-black text-gray-800">৳ {{ "{:,.2f}".format(item.balance) }}</span>
                     </div>
                 {% endfor %}
-                <div class="flex justify-between items-center pt-4 border-t border-dashed border-gray-200 mt-4">
+                <div class="flex justify-between items-center pt-2 border-t border-dashed border-gray-200 mt-2">
                     <span class="font-black text-gray-900 uppercase font-mono">Total Expenses</span>
-                    <span class="font-mono text-xl font-black text-gray-900">৳ {{ "{:,.2f}".format(data.total_expense) }}</span>
+                    <span class="font-mono text-lg font-black text-gray-900">৳ {{ "{:,.2f}".format(data.total_expense) }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Final Summary -->
-        <div class="pt-8 bg-indigo-50 -mx-12 px-12 pb-12">
-            <div class="flex justify-between items-center bg-white p-8 rounded-2xl shadow-sm border-2 border-indigo-200">
-                <span class="text-2xl font-black text-gray-900">NET PROFIT / LOSS</span>
-                <span class="text-3xl font-black text-indigo-700">৳ {{ "{:,.2f}".format(data.net_profit) }}</span>
+        <div class="pt-6 {{ 'bg-none p-0' if is_pdf else 'bg-indigo-50 -mx-12 px-12 pb-12' }}">
+            <div class="flex justify-between items-center bg-white {{ 'p-4 border-2 border-indigo-600' if is_pdf else 'p-8 rounded-2xl shadow-sm border-2 border-indigo-200' }}">
+                <span class="text-2xl font-black text-gray-900 uppercase">Net Profit / Loss</span>
+                <span class="text-2xl font-black text-indigo-700">৳ {{ "{:,.2f}".format(data.net_profit) }}</span>
             </div>
         </div>
     </div>

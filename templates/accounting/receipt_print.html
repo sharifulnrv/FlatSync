@@ -1,171 +1,259 @@
-{% extends "base.html" %}
+{% extends "pdf_report_base.html" if is_pdf else "base.html" %}
 
 {% block header %}Money Receipt{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto p-12 bg-white shadow-2xl rounded-3xl border-4 border-slate-900 mt-8 mb-20 printable-area relative overflow-hidden">
-    <!-- Watermark Pattern -->
-    <div class="absolute inset-0 opacity-[0.03] pointer-events-none select-none flex items-center justify-center rotate-12">
-        <h1 class="text-9xl font-black">PAID</h1>
-    </div>
 
-    <!-- Association Header -->
-    <div class="text-center mb-10 border-b-4 border-slate-900 pb-6">
-        <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">{{ company_name }}</h1>
-        <p class="text-[10px] font-bold text-gray-600">{{ company_address }}</p>
-    </div>
-    <!-- Watermark Pattern -->
+{% if is_pdf %}
+<!-- PDF VERSION (Pure Tables for high-fidelity reportlab rendering) -->
+<div class="pdf-container" style="padding: 5pt; background-color: white;">
+    <table style="width: 100%; border: 2pt solid #0f172a; border-radius: 40pt; padding: 25pt; background-color: #ffffff;">
+        <tr>
+            <td>
+                <!-- Branded Header -->
+                <table style="width: 100%; margin-bottom: 20pt; border:0;">
+                    <tr>
+                        <td style="width: 70%; vertical-align: middle; border:0;">
+                            <h1 style="font-size: 30pt; font-weight: bold; color: #0f172a; margin: 0; letter-spacing: -1.5pt;">{{ config.COMPANY_NAME|upper }}</h1>
+                            <p style="font-size: 10pt; font-weight: bold; color: #64748b; margin-top: 3pt; letter-spacing: 0.5pt;">{{ config.COMPANY_ADDRESS }}</p>
+                        </td>
+                        <td style="width: 30%; text-align: right; vertical-align: middle; border:0;">
+                            <!-- Status Badge -->
+                            <div style="background-color: #f1f5f9; border: 1.5pt solid #e2e8f0; padding: 8pt 15pt; border-radius: 12pt;">
+                                <p style="font-size: 12pt; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 1.5pt;">PAID</p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
 
-    <!-- Receipt Meta -->
-    <div class="flex justify-between items-center mb-10">
-        <div class="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-sm tracking-widest">
-            MONEY RECEIPT
+                <div style="border-bottom: 2pt solid #f1f5f9; margin-bottom: 20pt;"></div>
+
+                <!-- Main Document Identity -->
+                <table style="width: 100%; margin-bottom: 30pt; border: 0;">
+                    <tr>
+                        <td style="width: 50%; vertical-align: top; border: 0;">
+                            <div style="background-color: #0f172a; color: #ffffff; padding: 12pt 30pt; border-radius: 20pt; font-size: 14pt; font-weight: bold; text-align: center; display: inline-block;">MONEY RECEIPT</div>
+                            <p style="font-size: 8pt; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-top: 10pt; letter-spacing: 1.5pt;">SECURE TRANSACTION LOG</p>
+                        </td>
+                        <td style="width: 50%; text-align: right; vertical-align: top; border: 0;">
+                            <table style="width: 100%; border:0;">
+                                <tr>
+                                    <td style="text-align: right; border:0; padding-bottom: 3pt;">
+                                        <span style="font-size: 8pt; color: #94a3b8; font-weight: bold; text-transform: uppercase;">Receipt Number</span><br>
+                                        <span style="font-size: 22pt; font-weight: 900; color: #0f172a; letter-spacing: -1pt;">#MR-{{ "%05d"|format(journal.id) }}</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: right; border:0; padding-top: 5pt;">
+                                        <span style="font-size: 8pt; color: #94a3b8; font-weight: bold; text-transform: uppercase;">Clearance Date</span><br>
+                                        <span style="font-size: 14pt; font-weight: 900; color: #334155;">{{ journal.date.strftime('%B %d, %Y') }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Body Fields -->
+                <div style="margin-bottom: 30pt;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="width: 160pt; padding: 10pt 0; vertical-align: top; font-size: 9pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; border-bottom: 1pt solid #f1f5f9;">Received from:</td>
+                            <td style="padding: 10pt 0; font-size: 18pt; font-weight: 900; color: #0f172a; text-transform: uppercase; border-bottom: 1pt solid #f1f5f9;">{{ journal.entries[0].customer.name if journal.entries[0].customer else 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 160pt; padding: 10pt 0; vertical-align: top; font-size: 9pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; border-bottom: 1pt solid #f1f5f9;">Allocation Unit:</td>
+                            <td style="padding: 10pt 0; font-size: 15pt; font-weight: 900; color: #334155; text-transform: uppercase; border-bottom: 1pt solid #f1f5f9;">
+                                {% if unit %}UNIT - {{ unit.unit_number }}{% else %}N/A{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width: 160pt; padding: 10pt 0; vertical-align: top; font-size: 9pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; border-bottom: 1pt solid #f1f5f9;">Particulars:</td>
+                            <td style="padding: 10pt 0; font-size: 12pt; font-weight: bold; color: #475569; border-bottom: 1pt solid #f1f5f9;">
+                                {{ journal.description }}
+                                {% if bill %}(Bill Cycle: {{ bill.month }}/{{ bill.year }}){% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width: 160pt; padding: 12pt 0; vertical-align: top; font-size: 9pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; border-bottom: 1pt solid #f1f5f9;">Sum in Words:</td>
+                            <td style="padding: 12pt 0; font-size: 13pt; font-weight: 900; font-style: italic; color: #0f172a; border-bottom: 1pt solid #f1f5f9;">{{ payment_amount|words }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Footer Block - INK EFFICIENT (Removed solid navy background) -->
+                <table style="width: 100%; margin-top: 30pt; border:0;">
+                    <tr>
+                        <td style="width: 55%; border:0; vertical-align: bottom;">
+                            <table style="width: 100%; border:0;">
+                                <tr>
+                                    <td style="border: 2pt solid #0f172a; padding: 15pt 25pt; border-radius: 15pt; background-color: #f8fafc;">
+                                        <p style="font-size: 8pt; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 3pt; letter-spacing: 1pt;">Total Amount Cleared</p>
+                                        <p style="font-size: 32pt; font-weight: 900; color: #0f172a; margin: 0; letter-spacing: -2pt;">৳ {{ "{:,.2f}".format(payment_amount) }}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                        <td style="width: 45%; text-align: center; vertical-align: bottom; border:0; padding-left: 40pt;">
+                            <div style="border-bottom: 2pt solid #0f172a; margin-bottom: 10pt;"></div>
+                            <p style="font-size: 10pt; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 1pt;">Authorized Official</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Secure Document Footer -->
+                <div style="margin-top: 40pt; border-top: 1pt solid #f1f5f9; padding-top: 10pt; text-align: center;">
+                    <p style="font-size: 7pt; font-weight: bold; color: #cbd5e1; text-transform: uppercase; letter-spacing: 3pt;">* Authenticated by FlatSync ERP Protocol *</p>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+{% else %}
+<!-- WEB/SCREEN VERSION (Tailwind) -->
+<div class="max-w-4xl mx-auto p-12 mt-8 mb-20 printable-area">
+    <div class="relative bg-white border-[3px] border-slate-900 rounded-[3rem] p-16 shadow-2xl overflow-hidden">
+        
+        <!-- Premium Watermark Pattern -->
+        <div class="absolute top-0 right-0 p-12 opacity-[0.02] pointer-events-none select-none">
+            <i class="fas fa-shield-check text-[30rem] text-slate-900 rotate-12"></i>
         </div>
-        <div class="text-right">
-            <p class="text-[10px] font-black text-gray-400 uppercase">Receipt No</p>
-            <p class="text-xl font-mono font-black text-slate-900">#MR-{{ "%05d"|format(journal.id) }}</p>
-            <p class="text-[10px] font-black text-gray-400 uppercase mt-2">Date</p>
-            <p class="text-sm font-bold text-slate-700">{{ journal.date.strftime('%B %d, %Y') }}</p>
-        </div>
-    </div>
 
-    <!-- Receipt Body -->
-    <div class="space-y-6 text-sm">
-        <div class="flex border-b border-dashed border-slate-300 pb-2">
-            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Received with thanks from:</span>
-            <span class="flex-1 font-black text-slate-900 text-lg uppercase tracking-tight">{{ journal.entries[0].customer.name if journal.entries[0].customer else 'N/A' }}</span>
-        </div>
-
-        <div class="flex border-b border-dashed border-slate-300 pb-2">
-            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Unit Number:</span>
-            <span class="flex-1 font-bold text-slate-800">
-                {% if unit %}
-                UNIT - {{ unit.unit_number }}
-                {% else %}
-                N/A
-                {% endif %}
-            </span>
-        </div>
-
-        <div class="flex border-b border-dashed border-slate-300 pb-2">
-            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Against Particulars:</span>
-            <span class="flex-1 font-medium text-slate-700">
-                {{ journal.description }}
-                {% if bill %}
-                (For {{ bill.month }}/{{ bill.year }})
-                {% endif %}
-            </span>
-        </div>
-
-        <div class="flex border-b border-dashed border-slate-300 pb-2">
-            <span class="font-bold text-gray-500 w-48 uppercase text-[10px] mt-1">Sum of Taka (In Words):</span>
-            <span class="flex-1 font-bold italic text-slate-800" id="words-output">__________________________________________________________________</span>
-        </div>
-    </div>
-
-    <!-- Amount Block -->
-    <div class="mt-12 flex justify-between items-end">
-        <div class="bg-slate-50 border-2 border-slate-900 p-6 rounded-2xl">
-            <span class="text-[10px] font-black text-gray-400 uppercase block mb-1">Total Amount Received</span>
-            <span class="text-4xl font-black text-slate-900 font-mono">৳ {{ "{:,.2f}".format(amount) }}</span>
-        </div>
-
-        <!-- Signature Section -->
-        <div class="w-64 text-center">
-            <div class="mb-12">
-                <!-- Sign space -->
+        <div class="relative" style="z-index: 10;">
+            <!-- Branded Header -->
+            <div class="flex justify-between items-start mb-16">
+                <div class="text-left">
+                    <h1 class="text-6xl font-black text-slate-900 tracking-tighter" style="font-family: 'Inter', sans-serif;">{{ config.COMPANY_NAME|upper }}</h1>
+                    <p class="text-[14px] font-bold text-slate-400 tracking-[0.2em] uppercase mt-2">{{ config.COMPANY_ADDRESS }}</p>
+                </div>
+                <div class="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 px-10 text-center">
+                    <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Status</p>
+                    <p class="text-2xl font-black text-indigo-600 tracking-widest uppercase">PAID</p>
+                </div>
             </div>
-            <div class="border-t-2 border-slate-900 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-800">Accountant / Manager Signature</div>
-        </div>
-    </div>
 
-    <!-- Footer Note -->
-    <div class="mt-12 text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-        * This is a computer generated receipt and does not require a physical seal *
+            <!-- Receipt Identity Row -->
+            <div class="flex justify-between items-end mb-24 pb-12 border-b-2 border-slate-50">
+                <div>
+                    <div class="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-xs tracking-widest uppercase shadow-2xl mb-6">
+                        Money Receipt
+                    </div>
+                    <p class="text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase">Document Category: Financial Credit</p>
+                </div>
+                <div class="text-right">
+                    <div class="mb-6">
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-1">Receipt No</p>
+                        <p class="text-5xl font-black text-slate-900 tracking-tighter">#MR-{{ "%05d"|format(journal.id) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-1">Clearance Date</p>
+                        <p class="text-xl font-black text-slate-600">{{ journal.date.strftime('%B %d, %Y') }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fields Area -->
+            <div class="space-y-16 mb-32">
+                <!-- From -->
+                <div class="grid grid-cols-12 gap-8 items-end border-b-2 border-slate-100 pb-4">
+                    <div class="col-span-3 text-[11px] font-black text-slate-300 uppercase tracking-widest mb-1">Received from:</div>
+                    <div class="col-span-9 text-4xl font-black text-slate-900 tracking-tighter uppercase">{{ journal.entries[0].customer.name if journal.entries[0].customer else 'N/A' }}</div>
+                </div>
+
+                <!-- Unit -->
+                <div class="grid grid-cols-12 gap-8 items-end border-b-2 border-slate-100 pb-4">
+                    <div class="col-span-3 text-[11px] font-black text-slate-300 uppercase tracking-widest mb-1">Allocation Unit:</div>
+                    <div class="col-span-9 text-3xl font-black text-slate-700 tracking-tight uppercase">
+                        {% if unit %}UNIT - {{ unit.unit_number }}{% else %}N/A{% endif %}
+                    </div>
+                </div>
+
+                <!-- Particulars -->
+                <div class="grid grid-cols-12 gap-8 items-start border-b-2 border-slate-100 pb-4">
+                    <div class="col-span-3 text-[11px] font-black text-slate-300 uppercase tracking-widest mt-2">Particulars:</div>
+                    <div class="col-span-9 text-xl font-bold text-slate-600 leading-snug">
+                        {{ journal.description }}
+                        {% if bill %}<span class="text-indigo-600 ml-2">(Bill Cycle: {{ bill.month }}/{{ bill.year }})</span>{% endif %}
+                    </div>
+                </div>
+
+                <!-- Sum in Words -->
+                <div class="grid grid-cols-12 gap-8 items-end border-b-2 border-slate-100 pb-4">
+                    <div class="col-span-3 text-[11px] font-black text-slate-300 uppercase tracking-widest mb-1">Amount in Words:</div>
+                    <div class="col-span-9 text-2xl font-black italic text-slate-900 tracking-tight">
+                        {{ payment_amount|words }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Area -->
+            <div class="flex items-end justify-between mt-20">
+                <!-- Amount Box -->
+                <div class="border-[5px] border-slate-900 rounded-[3rem] p-12 py-10 w-[26rem] bg-indigo-50/20 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
+                    <p class="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-6">Total Cleared BDT</p>
+                    <div class="flex items-center text-7xl font-black text-slate-900 tracking-tighter">
+                        <span class="text-4xl mr-6 text-slate-300 italic">৳</span>
+                        {{ "{:,.2f}".format(payment_amount) }}
+                    </div>
+                </div>
+
+                <!-- Signature -->
+                <div class="w-[24rem] text-center">
+                    <div class="mb-8">
+                        <p class="text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-4">Digital Seal Verification</p>
+                        <i class="fas fa-stamp text-6xl text-slate-100"></i>
+                    </div>
+                    <div class="border-b-[5px] border-slate-900 h-10 mb-6 mx-8"></div>
+                    <p class="text-[12px] font-black text-slate-900 uppercase tracking-[0.3em]">Authorized Official</p>
+                </div>
+            </div>
+
+            <!-- Disclaimer -->
+            <div class="mt-24 border-t border-slate-100 pt-10 text-center">
+                <p class="text-[10px] font-black text-slate-200 uppercase tracking-[0.5em]">
+                    * Authentically Generated Financial Receipt | FlatSync ERP Protocol *
+                </p>
+            </div>
+        </div>
     </div>
 </div>
+{% endif %}
 
-<div class="max-w-3xl mx-auto mb-20 flex justify-center space-x-4 no-print">
-    <button onclick="downloadPDF()" class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-xl transition-all flex items-center">
-        <i class="fas fa-file-pdf mr-3"></i> Download as PDF
+<!-- Web Navigation -->
+<div class="max-w-4xl mx-auto mb-20 flex justify-center space-x-6 no-print">
+    <button onclick="requestDownload()" class="group bg-slate-900 text-white px-12 py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] hover:bg-black shadow-[0_20px_50px_rgba(0,0,0,0.2)] transition-all flex items-center">
+        <i class="fas fa-file-pdf mr-4 text-indigo-400 group-hover:scale-125 transition-transform"></i> 
+        Download Elite PDF
     </button>
-    {% if event %}
-    <a href="{{ url_for('events.event_detail', id=event.id) }}" class="bg-gray-100 text-gray-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">
-        Back to Event
+    <a href="javascript:history.back()" class="bg-white border-2 border-slate-100 text-slate-400 px-10 py-6 rounded-3xl font-black text-xs uppercase tracking-widest hover:border-slate-900 hover:text-slate-900 transition-all">
+        <i class="fas fa-arrow-left mr-3"></i> Back
     </a>
-    {% else %}
-    <a href="{{ url_for('service_charges.dashboard') }}" class="bg-gray-100 text-gray-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">
-        Back
-    </a>
-    {% endif %}
 </div>
 
 <script>
-    function numberToWords(number) {
-        const first = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-        const mad = ['', 'Thousand', 'Million', 'Billion', 'Trillion'];
-
-        let word = '';
-
-        const splitNumber = (num) => {
-            let res = [];
-            while (num > 0) {
-                res.push(num % 1000);
-                num = Math.floor(num / 1000);
-            }
-            return res;
-        };
-
-        const render = (n) => {
-            if (n === 0) return '';
-            let tempWord = '';
-            if (n >= 100) {
-                tempWord += first[Math.floor(n / 100)] + ' Hundred ';
-                n %= 100;
-            }
-            if (n >= 20) {
-                tempWord += tens[Math.floor(n / 10)] + ' ';
-                n %= 10;
-            }
-            if (n > 0) tempWord += first[n] + ' ';
-            return tempWord;
-        };
-
-        let chunks = splitNumber(Math.floor(number));
-        for (let i = 0; i < chunks.length; i++) {
-            if (chunks[i] === 0) continue;
-            word = render(chunks[i]) + mad[i] + ' ' + word;
+    function requestDownload() {
+        const path = "{{ url_for('accounting.download_receipt_pdf', journal_id=journal.id) }}";
+        if (window.pywebview && window.pywebview.api) {
+            window.pywebview.api.download_url(path);
+        } else {
+            window.location.href = path;
         }
-
-        return word.trim() + ' Taka Only';
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const amount = {{ amount }};
-        const words = numberToWords(amount);
-        const el = document.getElementById('words-output');
-        if (el) el.innerText = words;
-    });
-
-    function downloadPDF() {
-        const element = document.querySelector('.printable-area');
-        const opt = {
-            margin:       0.5,
-            filename:     'Receipt_{{ journal.id }}.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
     }
 </script>
 
+{% if not is_pdf %}
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
     @media print {
-        body { padding: 0 !important; }
-        .printable-area { border-width: 2px !important; box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; padding: 2rem !important; }
-        footer, nav, aside, .no-print { display: none !important; }
+        body { background: white !important; padding: 0 !important; }
+        .printable-area { padding: 0 !important; margin: 0 !important; }
+        .no-print { display: none !important; }
     }
 </style>
+{% else %}
+<style>
+    body { font-family: Helvetica, Arial, sans-serif; }
+</style>
+{% endif %}
 {% endblock %}

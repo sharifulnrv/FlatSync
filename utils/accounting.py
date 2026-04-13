@@ -32,7 +32,8 @@ def record_journal_entry(description, items, reference=None, date=None, monthly_
             credit=item['credit'],
             customer_id=item.get('customer_id'),
             party_id=item.get('party_id'),
-            event_id=item.get('event_id', event_id)
+            event_id=item.get('event_id', event_id),
+            asset_id=item.get('asset_id')
         )
         db.session.add(ledger)
     

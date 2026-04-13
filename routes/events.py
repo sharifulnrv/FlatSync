@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from models import db, Event, LedgerEntry
+from flask_login import current_user
+from models import db, Event, Unit, Customer, EventFinance, EventCategory
 from datetime import datetime
+from utils.accounting import record_journal_entry
 
 events_bp = Blueprint('events', __name__)
 
@@ -110,20 +112,125 @@ def event_detail(id):
                 'payment_id': payment_id
             })
 
+    # Use the new isolated Event Finance model
+    finance_records = EventFinance.query.filter_by(event_id=id).order_by(EventFinance.date.desc()).all()
+    
+    total_inflow = sum(f.amount for f in finance_records if f.type == 'income')
+    total_outflow = sum(f.amount for f in finance_records if f.type == 'expense')
+
+    # Simplified summary for the UI (Replaces Trial Balance)
+    # We will group by category to show where money came from/went
+    summary_by_category = {}
+    for f in finance_records:
+        if f.category:
+            cat_name = f.category.name
+        else:
+            cat_name = "General"
+            
+        if cat_name not in summary_by_category:
+            summary_by_category[cat_name] = 0
+        
+        if f.type == 'income':
+            summary_by_category[cat_name] += f.amount
+        else:
+            summary_by_category[cat_name] -= f.amount
+
+    # Convert to list for template
+    event_summary = []
+    for name, bal in summary_by_category.items():
+         event_summary.append({
+             'name': name,
+             'balance': bal,
+             'type': 'income' if bal >= 0 else 'expense'
+         })
+
     # For modal logic
     billed_resident_ids = [a['resident_id'] for a in attendance_data if a['is_billed']]
+    
+    # Aggregate attendance stats for the top cards
+    collectable = sum(a['collectable'] for a in attendance_data)
+    collected = sum(a['collected'] for a in attendance_data)
+    due = collectable - collected
+
+    # Fetch categories
+    categories = EventCategory.query.order_by(EventCategory.name).all()
 
     return render_template('event_detail.html', 
                            event=event, 
-                           liquid_accounts=liquid_accounts, 
                            units=units, 
-                           income=income, 
-                           expense=expense,
+                           total_inflow=total_inflow,
+                           total_outflow=total_outflow,
+                           net_position=total_inflow - total_outflow,
+                           attendance_data=attendance_data,
+                           billed_resident_ids=billed_resident_ids,
+                           event_summary=event_summary,
+                           finance_records=finance_records,
                            collectable=collectable,
                            collected=collected,
-                           due=collectable - collected,
-                           attendance_data=attendance_data,
-                           billed_resident_ids=billed_resident_ids)
+                           due=due,
+                           categories=categories,
+                           now=datetime.utcnow())
+
+@events_bp.route('/events/categories', methods=['POST'])
+def add_event_category():
+    name = request.form.get('name')
+    cat_type = request.form.get('type', 'expense')
+    if name:
+        existing = EventCategory.query.filter_by(name=name).first()
+        if existing:
+            flash(f'Category "{name}" already exists.', 'warning')
+        else:
+            new_cat = EventCategory(name=name, type=cat_type)
+            db.session.add(new_cat)
+            db.session.commit()
+            flash(f'Category "{name}" added successfully!', 'success')
+    return redirect(request.referrer or url_for('events.list_events'))
+
+@events_bp.route('/events/categories/<int:id>/delete', methods=['POST'])
+def delete_event_category(id):
+    cat = EventCategory.query.get_or_404(id)
+    if cat.records:
+        flash(f'Cannot delete category "{cat.name}" because it is in use.', 'danger')
+    else:
+        db.session.delete(cat)
+        db.session.commit()
+        flash('Category deleted.', 'success')
+    return redirect(request.referrer or url_for('events.list_events'))
+
+@events_bp.route('/events/<int:id>/record-finance', methods=['POST'])
+def record_event_finance(id):
+    event = Event.query.get_or_404(id)
+    finance_type = request.form.get('type') # income or expense
+    amount = float(request.form.get('amount', 0))
+    description = request.form.get('description')
+    category_id = request.form.get('category_id')
+    
+    if amount <= 0:
+        flash('Amount must be greater than zero.', 'danger')
+        return redirect(url_for('events.event_detail', id=id))
+
+    date_str = request.form.get('date')
+    if date_str:
+        try:
+            record_date = datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError:
+            record_date = datetime.utcnow()
+    else:
+        record_date = datetime.utcnow()
+
+    new_record = EventFinance(
+        event_id=id,
+        type=finance_type,
+        amount=amount,
+        description=description,
+        category_id=category_id if category_id and category_id != 'None' else None,
+        date=record_date
+    )
+    db.session.add(new_record)
+    db.session.commit()
+    
+    flash(f"Successfully recorded event {finance_type}.", "success")
+    return redirect(url_for('events.event_detail', id=id))
 
 @events_bp.route('/events/<int:id>/bulk-bill', methods=['POST'])
 def bulk_bill_residents(id):
@@ -159,12 +266,9 @@ def bulk_bill_residents(id):
 
 @events_bp.route('/events/<int:id>/pay', methods=['POST'])
 def pay_resident_bill(id):
-    from models import Customer
     event = Event.query.get_or_404(id)
     resident_id = int(request.form.get('resident_id'))
     amount = float(request.form.get('amount') or 0)
-    # Use 3150 (Event Fund) as default liquid account
-    liquid_code = request.form.get('account_code', '3150') 
     
     resident = Customer.query.get_or_404(resident_id)
     
@@ -172,14 +276,25 @@ def pay_resident_bill(id):
         flash('Amount must be greater than zero', 'danger')
         return redirect(url_for('events.event_detail', id=id))
         
-    # Record payment
-    # Debit: Selected Liquid (Default 3150), Credit: Event Receivable (3995)
-    desc = f"Event Payment Recv - {event.name} (Resident: {resident.name})"
-    items = [
-        {'account_code': liquid_code, 'debit': amount, 'credit': 0, 'customer_id': resident_id},
-        {'account_code': '3995', 'debit': 0, 'credit': amount, 'customer_id': resident_id}
-    ]
-    record_journal_entry(desc, items, reference=f"EVT-PAY-{id}", event_id=id)
+    # Get or create resident contribution category
+    cat = EventCategory.query.filter_by(name='Resident Contribution', type='income').first()
+    if not cat:
+        cat = EventCategory(name='Resident Contribution', type='income')
+        db.session.add(cat)
+        db.session.flush()
+
+    # Record in isolated Event Finance only
+    new_record = EventFinance(
+        event_id=id,
+        type='income',
+        amount=amount,
+        description=f"Payment from {resident.name}",
+        category_id=cat.id,
+        date=datetime.utcnow()
+    )
+    db.session.add(new_record)
+    db.session.commit()
+    
     flash(f"Payment of ৳{amount:,.2f} recorded for {resident.name}", 'success')
     return redirect(url_for('events.event_detail', id=id))
 
@@ -191,48 +306,5 @@ def complete_event(id):
     flash(f"Event '{event.name}' marked as completed", 'success')
     return redirect(url_for('events.list_events'))
 
-from utils.accounting import record_journal_entry
 
-@events_bp.route('/events/<int:id>/record', methods=['POST'])
-def record_event_transaction(id):
-    from models import Account, LedgerEntry
-    from sqlalchemy import func
-    event = Event.query.get_or_404(id)
-    trans_type = request.form.get('type') # 'income' or 'expense'
-    amount = float(request.form.get('amount') or 0)
-    description = request.form.get('description')
-    # Use 3150 (Event Fund) as default liquid account
-    liquid_code = request.form.get('account_code', '3150') 
-    
-    if amount <= 0:
-        flash('Amount must be greater than zero', 'danger')
-        return redirect(url_for('events.event_detail', id=event.id))
-
-    if trans_type == 'expense':
-        # Check if enough collected for this event (Independent check)
-        collected = db.session.query(func.coalesce(func.sum(LedgerEntry.credit), 0))\
-            .filter(LedgerEntry.event_id == id, LedgerEntry.account.has(Account.code == '3995')).scalar() or 0
-        total_expense = db.session.query(func.coalesce(func.sum(LedgerEntry.debit), 0))\
-            .filter(LedgerEntry.event_id == id, LedgerEntry.account.has(Account.code == '5800')).scalar() or 0
-        
-        available = collected - total_expense
-        if amount > available:
-            flash(f"Warning: Expense (৳{amount:,.2f}) exceeds available collected funds (৳{available:,.2f}). Recording anyway.", 'warning')
-
-        # Debit: Event Expense (5800), Credit: Selected Liquid (Default 3150)
-        items = [
-            {'account_code': '5800', 'debit': amount, 'credit': 0},
-            {'account_code': liquid_code, 'debit': 0, 'credit': amount}
-        ]
-        desc = f"Event Expense - {event.name}: {description}"
-    else:
-        # Debit: Selected Liquid (Default 3150), Credit: Event Revenue (4700)
-        items = [
-            {'account_code': liquid_code, 'debit': amount, 'credit': 0},
-            {'account_code': '4700', 'debit': 0, 'credit': amount}
-        ]
-        desc = f"Event Income - {event.name}: {description}"
-        
-    record_journal_entry(desc, items, reference=f"EVT-{event.id}", event_id=event.id)
-    flash(f"{trans_type.capitalize()} of ৳{amount:,.2f} recorded for {event.name}", 'success')
-    return redirect(url_for('events.event_detail', id=event.id))
+# End of events routes

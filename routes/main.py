@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, url_for
-from models import db, Unit, Customer, LedgerEntry, Account, MaintenanceTicket, Party, JournalEntry, MonthlyBill
+from models import db, Unit, Customer, LedgerEntry, Account, MaintenanceTicket, Party, JournalEntry, MonthlyBill, Asset
 from datetime import datetime, timedelta
 from sqlalchemy import func, or_
 
@@ -83,7 +83,7 @@ def index():
     occupied = Unit.query.filter_by(status='occupied').count()
     
     # Universal Revenue Consolidation
-    revenue_accs = Account.query.filter_by(type='revenue').all()
+    revenue_accs = Account.query.filter_by(type='revenue', is_summary=False).all()
     revenue_ids = [acc.id for acc in revenue_accs]
     cash_acc = Account.query.filter_by(code='3100').first()
     ar_acc = Account.query.filter_by(code='3930').first()
@@ -93,9 +93,11 @@ def index():
     total_due = 0
     
     if revenue_ids:
-        total_income = db.session.query(func.sum(LedgerEntry.credit)).filter(LedgerEntry.account_id.in_(revenue_ids)).scalar() or 0
+        total_income = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit))\
+            .filter(LedgerEntry.account_id.in_(revenue_ids), LedgerEntry.event_id == None).scalar() or 0
     if cash_acc:
-        total_collected = db.session.query(func.sum(LedgerEntry.debit)).filter_by(account_id=cash_acc.id).scalar() or 0
+        total_collected = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit))\
+            .filter_by(account_id=cash_acc.id, event_id=None).scalar() or 0
     if ar_acc:
         # A/R balance = Total Debits - Total Credits (from Ledger)
         ar_debits = db.session.query(func.sum(LedgerEntry.debit)).filter_by(account_id=ar_acc.id).scalar() or 0
@@ -108,19 +110,54 @@ def index():
         total_due += accrued_penalties
 
     # NEW: Total Cost (Expense sum)
-    expense_accs = Account.query.filter_by(type='expense').all()
+    expense_accs = Account.query.filter_by(type='expense', is_summary=False).all()
     expense_ids = [acc.id for acc in expense_accs]
     total_cost = 0
     if expense_ids:
-        total_cost = db.session.query(func.sum(LedgerEntry.debit)).filter(LedgerEntry.account_id.in_(expense_ids)).scalar() or 0
+        total_cost = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit))\
+            .filter(LedgerEntry.account_id.in_(expense_ids), LedgerEntry.event_id == None).scalar() or 0
 
-    # NEW: Current Balance (Cash + Bank accounts)
-    liquid_accs = Account.query.filter(Account.type == 'asset', Account.code.like('10%')).all()
-    current_balance = 0
-    for acc in liquid_accs:
-        debits = db.session.query(func.sum(LedgerEntry.debit)).filter_by(account_id=acc.id).scalar() or 0
-        credits = db.session.query(func.sum(LedgerEntry.credit)).filter_by(account_id=acc.id).scalar() or 0
-        current_balance += (debits - credits)
+    # NEW: Granular Balances (Cash, Bank, Funds)
+    # Cash in Hand: 3110
+    # Operating Bank: 3120
+    # Event Fund: 3150
+    
+    def get_acc_bal(code_prefix):
+        accs = Account.query.filter(Account.code.like(f'{code_prefix}%'), Account.is_summary == False).all()
+        bal = 0
+        for acc in accs:
+            d = db.session.query(func.sum(LedgerEntry.debit)).filter_by(account_id=acc.id).scalar() or 0
+            c = db.session.query(func.sum(LedgerEntry.credit)).filter_by(account_id=acc.id).scalar() or 0
+            bal += (d - c)
+        return float(bal)
+
+    cash_bal = get_acc_bal('311')
+    bank_bal = get_acc_bal('312')
+    fund_bal = get_acc_bal('315')
+    other_bal = get_acc_bal('31') - (cash_bal + bank_bal + fund_bal)
+    
+    current_balance = cash_bal + bank_bal + fund_bal + other_bal
+
+    # NEW: Total Assets (All accounts of type 'asset' + Physical Assets)
+    asset_accs = Account.query.filter_by(type='asset', is_summary=False).all()
+    asset_ids = [acc.id for acc in asset_accs]
+    total_assets = 0
+    if asset_ids:
+        a_debits = db.session.query(func.sum(LedgerEntry.debit)).filter(LedgerEntry.account_id.in_(asset_ids), LedgerEntry.event_id == None).scalar() or 0
+        a_credits = db.session.query(func.sum(LedgerEntry.credit)).filter(LedgerEntry.account_id.in_(asset_ids), LedgerEntry.event_id == None).scalar() or 0
+        total_assets = a_debits - a_credits
+
+    # ADD: Physical Assets from Asset module
+    from models import Asset as FixedAsset
+    fixed_assets_val = sum(a.current_value for a in Asset.query.all())
+    total_assets += fixed_assets_val
+
+    # FIX: Event Fund (Total net economic value for events: Revenue - Expense)
+    event_income = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit))\
+        .join(Account).filter(Account.type == 'revenue', LedgerEntry.event_id != None).scalar() or 0
+    event_expense = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit))\
+        .join(Account).filter(Account.type == 'expense', LedgerEntry.event_id != None).scalar() or 0
+    event_fund = float(event_income - event_expense)
 
     # Real overdue data from A/R account
     overdue_list = []
@@ -183,31 +220,33 @@ def index():
         
         m_income = 0
         if revenue_ids:
-            m_income = db.session.query(func.sum(LedgerEntry.credit))\
-                .join(JournalEntry).filter(LedgerEntry.account_id.in_(revenue_ids), JournalEntry.date >= m_start, JournalEntry.date < next_m).scalar() or 0
+            m_income = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit))\
+                .join(JournalEntry).filter(LedgerEntry.account_id.in_(revenue_ids), LedgerEntry.event_id == None, JournalEntry.date >= m_start, JournalEntry.date < next_m).scalar() or 0
         income_data.append(float(m_income))
         
         m_collected = 0
         if cash_acc:
-            m_collected = db.session.query(func.sum(LedgerEntry.debit))\
+            m_collected = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit))\
                 .join(JournalEntry).filter(LedgerEntry.account_id == cash_acc.id, JournalEntry.date >= m_start, JournalEntry.date < next_m).scalar() or 0
         collection_data.append(float(m_collected))
 
         m_expense = 0
         if expense_ids:
-            m_expense = db.session.query(func.sum(LedgerEntry.debit))\
-                .join(JournalEntry).filter(LedgerEntry.account_id.in_(expense_ids), JournalEntry.date >= m_start, JournalEntry.date < next_m).scalar() or 0
+            m_expense = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit))\
+                .join(JournalEntry).filter(LedgerEntry.account_id.in_(expense_ids), LedgerEntry.event_id == None, JournalEntry.date >= m_start, JournalEntry.date < next_m).scalar() or 0
         expense_data.append(float(m_expense))
 
     stats = {
         'total_income': f"{total_income:,.2f}",
         'total_cost': f"{total_cost:,.2f}",
+        'total_assets': f"{total_assets:,.2f}",
         'current_balance': f"{current_balance:,.2f}",
-        'total_collected': f"{total_collected:,.2f}",
         'total_due': f"{total_due:,.2f}",
         'total_units': total_units,
         'occupied': occupied,
-        'raw_income': total_income,
+        'cash_balance': f"{cash_bal:,.2f}",
+        'bank_balance': f"{bank_bal:,.2f}",
+        'fund_balance': f"{event_fund:,.2f}",
         'raw_collected': total_collected,
         'raw_due': total_due,
         'monthly_labels': monthly_labels,
@@ -218,6 +257,90 @@ def index():
 
     return render_template('index.html', stats=stats, overdue=overdue_list, tickets=tickets_data, today_date=datetime.now().strftime('%d %b %Y'))
 
+@main_bp.route('/reports/category-summary')
+def category_summary_report():
+    cat_type = request.args.get('type', 'revenue') # 'revenue' or 'expense'
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    if cat_type == 'event':
+        from models import Event
+        events = Event.query.all()
+        summary_data = []
+        total_all = 0
+        for ev in events:
+            rev = db.session.query(func.sum(LedgerEntry.credit - LedgerEntry.debit)).join(Account).filter(Account.type == 'revenue', LedgerEntry.event_id == ev.id).scalar() or 0
+            exp = db.session.query(func.sum(LedgerEntry.debit - LedgerEntry.credit)).join(Account).filter(Account.type == 'expense', LedgerEntry.event_id == ev.id).scalar() or 0
+            net = float(rev - exp)
+            summary_data.append({
+                'id': ev.id,
+                'code': ev.date.strftime('%Y-%m'),
+                'name': ev.name,
+                'total': net
+            })
+            total_all += net
+    else:
+        accounts = Account.query.filter_by(type=cat_type, is_summary=False).all()
+        account_ids = [acc.id for acc in accounts]
+        
+        # Calculate totals per account
+        if cat_type == 'revenue':
+            agg_func = func.sum(LedgerEntry.credit - LedgerEntry.debit)
+        elif cat_type == 'asset':
+            agg_func = func.sum(LedgerEntry.debit - LedgerEntry.credit)
+        elif cat_type == 'expense' or cat_type == 'cost':
+            agg_func = func.sum(LedgerEntry.debit - LedgerEntry.credit)
+        else:
+            agg_func = func.sum(LedgerEntry.credit - LedgerEntry.debit)
+            
+        query = db.session.query(
+            Account, 
+            agg_func.label('total')
+        ).join(LedgerEntry, LedgerEntry.account_id == Account.id).filter(Account.id.in_(account_ids), LedgerEntry.event_id == None)
+
+        if start_date:
+            query = query.join(JournalEntry).filter(JournalEntry.date >= datetime.strptime(start_date, '%Y-%m-%d'))
+        if end_date:
+            if JournalEntry not in [m.class_ for m in query._setup_joins]:
+                query = query.join(JournalEntry)
+            query = query.filter(JournalEntry.date <= datetime.strptime(end_date, '%Y-%m-%d'))
+            
+        results = query.group_by(Account.id).all()
+        
+        summary_data = []
+        total_all = 0
+        for acc, total in results:
+            val = float(total or 0)
+            summary_data.append({
+                'id': acc.id,
+                'code': acc.code,
+                'name': acc.name,
+                'total': val
+            })
+            total_all += val
+            
+        # NEW: Inject Physical Assets if type is 'asset'
+        if cat_type == 'asset':
+            fixed_assets_val = sum(a.current_value for a in Asset.query.all())
+            if fixed_assets_val > 0:
+                summary_data.append({
+                    'id': 'fixed-assets',
+                    'code': 'PHYS',
+                    'name': 'Physical Assets & Inventory',
+                    'total': float(fixed_assets_val)
+                })
+                total_all += float(fixed_assets_val)
+        
+    # Sort by total descending
+    summary_data = sorted(summary_data, key=lambda x: x['total'], reverse=True)
+    
+    return render_template('reports/category_summary.html', 
+                            summary_data=summary_data, 
+                            total_all=total_all,
+                            cat_type=cat_type,
+                            start_date=start_date,
+                            end_date=end_date)
+
 @main_bp.route('/reports/income-breakdown')
 def income_breakdown():
     start_date = request.args.get('start_date')
@@ -227,7 +350,7 @@ def income_breakdown():
     revenue_accounts = Account.query.filter_by(type='revenue').all()
     revenue_ids = [acc.id for acc in revenue_accounts]
     
-    query = LedgerEntry.query.filter(LedgerEntry.account_id.in_(revenue_ids)).join(JournalEntry)
+    query = LedgerEntry.query.filter(LedgerEntry.account_id.in_(revenue_ids), LedgerEntry.event_id == None).join(JournalEntry)
     
     if start_date:
         query = query.filter(JournalEntry.date >= datetime.strptime(start_date, '%Y-%m-%d'))
@@ -256,7 +379,21 @@ def income_breakdown():
 
 @main_bp.route('/reports/balance-breakdown')
 def balance_breakdown():
-    liquid_accs = Account.query.filter(Account.type == 'asset', Account.code.like('10%')).all()
+    # Filter by specific type if provided: 'bank' or 'cash'
+    filter_type = request.args.get('type')
+    
+    query = Account.query.filter(Account.type == 'asset', Account.code.like('31%'), Account.is_summary == False)
+    
+    if filter_type == 'bank':
+        query = query.filter(Account.code.like('312%'))
+        header_title = "Bank Account Detail"
+    elif filter_type == 'cash':
+        query = query.filter(Account.code.like('311%'))
+        header_title = "Cash Inventory"
+    else:
+        header_title = "Total Liquid Liquidity"
+        
+    liquid_accs = query.all()
     balance_details = []
     total_balance = 0
     
@@ -267,4 +404,4 @@ def balance_breakdown():
         total_balance += bal
         balance_details.append({'name': acc.name, 'balance': bal, 'id': acc.id, 'code': acc.code})
         
-    return render_template('reports/balance_breakdown.html', details=balance_details, total=total_balance)
+    return render_template('reports/balance_breakdown.html', details=balance_details, total=total_balance, title=header_title)

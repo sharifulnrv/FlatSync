@@ -1,0 +1,146 @@
+<!-- Finance Modal (Optimized for Categories) -->
+<div id="financeModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+            <h3 id="modalTitle" class="text-xl font-black text-gray-800">Record Transaction</h3>
+            <button onclick="toggleModal('financeModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form action="{{ url_for('events.record_event_finance', id=event.id) }}" method="POST" class="p-8 space-y-6">
+            <input type="hidden" id="transType" name="type" value="income">
+            
+            <div id="modalIconContainer" class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <i id="modalIcon" class="fas fa-hand-holding-usd text-3xl"></i>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Amount (BDT)</label>
+                <div class="relative">
+                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
+                    <input type="number" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Category</label>
+                <select id="category_id_select" name="category_id" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+                    <option value="">No Category</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Date</label>
+                <input type="date" name="date" value="{{ now.strftime('%Y-%m-%d') }}" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Description</label>
+                <input type="text" name="description" required placeholder="Details..." class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all">
+                Confirm
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Billing Modal -->
+<div id="billingModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+            <h3 class="text-xl font-black text-gray-800">Bill Residents for Event</h3>
+            <button onclick="toggleModal('billingModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form action="{{ url_for('events.bulk_bill_residents', id=event.id) }}" method="POST" class="p-8">
+            <div class="mb-8">
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Amount per Resident (BDT)</label>
+                <div class="relative">
+                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
+                    <input type="number" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest">Select Residents</h4>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-[10px] font-black text-indigo-600 uppercase">Select All</span>
+                </label>
+            </div>
+
+            <div class="max-h-60 overflow-y-auto mb-8 grid grid-cols-2 gap-3 custom-scrollbar">
+                {% for unit in units %}
+                {% set is_billed = unit.resident.id in billed_resident_ids %}
+                <label class="flex items-center p-4 {{ 'bg-indigo-50/50 cursor-not-allowed opacity-60' if is_billed else 'bg-gray-50 hover:border-indigo-100 cursor-pointer' }} rounded-2xl border border-transparent transition-all group">
+                    <input type="checkbox" name="unit_ids" value="{{ unit.id }}" {{ 'disabled' if is_billed }} class="resident-checkbox w-5 h-5 rounded-lg border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-4">
+                    <div class="overflow-hidden">
+                        <p class="font-black text-gray-800 text-xs">Unit {{ unit.unit_number }}</p>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden text-ellipsis">{{ unit.resident.name if unit.resident else 'N/A' }}</p>
+                        {% if is_billed %}
+                        <p class="text-[8px] font-black text-indigo-600 uppercase mt-1">Already Billed</p>
+                        {% endif %}
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                Generate Invoices
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Extra Modals -->
+<div id="singleBillingModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+            <div>
+                <h3 class="text-xl font-black text-gray-800">Assign Event Fee</h3>
+                <p id="singleBillName" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1"></p>
+            </div>
+            <button onclick="toggleModal('singleBillingModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form action="{{ url_for('events.bulk_bill_residents', id=event.id) }}" method="POST" class="p-8 space-y-6">
+            <input type="hidden" id="singleBillId" name="unit_ids">
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Fee Amount (BDT)</label>
+                <div class="relative">
+                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
+                    <input type="number" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                Generate Invoice
+            </button>
+        </form>
+    </div>
+</div>
+
+<div id="residentPaymentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+            <div>
+                <h3 class="text-xl font-black text-gray-800">Receive Payment</h3>
+                <p id="resPaymentName" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1"></p>
+            </div>
+            <button onclick="toggleModal('residentPaymentModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form action="{{ url_for('events.pay_resident_bill', id=event.id) }}" method="POST" class="p-8 space-y-6">
+            <input type="hidden" id="resPaymentId" name="resident_id">
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Payment Amount (BDT)</label>
+                <div class="relative">
+                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
+                    <input type="number" id="resPaymentAmount" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all">
+                Confirm Payment
+            </button>
+        </form>
+    </div>
+</div>

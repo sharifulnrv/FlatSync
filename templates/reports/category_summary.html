@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block header %}{{ cat_type|capitalize }} Breakdown Analysis{% endblock %}
+
+{% block content %}
+<div class="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div class="flex items-center space-x-4">
+        <a href="{{ url_for('main.index') }}" class="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:border-indigo-100 transition-all">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h2 class="text-2xl font-black text-gray-800 uppercase tracking-tighter">{{ cat_type|capitalize }} Summary</h2>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Financial Performance by Account Code</p>
+        </div>
+    </div>
+
+    <form class="flex flex-wrap items-center gap-3 bg-white p-3 rounded-[2rem] border border-gray-100 shadow-sm">
+        <input type="hidden" name="type" value="{{ cat_type }}">
+        <div class="flex items-center px-4 border-r border-gray-100">
+            <i class="fas fa-calendar-alt text-indigo-400 mr-3 text-xs"></i>
+            <input type="date" name="start_date" value="{{ start_date }}" class="text-xs font-black border-none focus:ring-0 p-1 text-gray-600 uppercase">
+            <span class="mx-2 text-gray-300">to</span>
+            <input type="date" name="end_date" value="{{ end_date }}" class="text-xs font-black border-none focus:ring-0 p-1 text-gray-600 uppercase">
+        </div>
+        <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+            Apply Filters
+        </button>
+    </form>
+</div>
+
+<!-- Total Summary Banner -->
+<div class="bg-indigo-900 rounded-[3rem] p-12 text-white mb-12 relative overflow-hidden shadow-2xl shadow-indigo-200">
+    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+        <div>
+            <p class="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-3">Total Consolidated {{ cat_type }}</p>
+            <h1 class="text-6xl font-black tracking-tighter">৳ {{ "{:,.2f}".format(total_all) }}</h1>
+        </div>
+        <div class="bg-white/10 backdrop-blur-md px-8 py-6 rounded-3xl border border-white/10">
+            <p class="text-[9px] font-black uppercase tracking-widest opacity-60 mb-2">Account Diversity</p>
+            <p class="text-xl font-black">{{ summary_data|length }} <span class="text-xs opacity-60">Active Accounts</span></p>
+        </div>
+    </div>
+    <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl"></div>
+</div>
+
+<!-- Grid Breakdown -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    {% for item in summary_data %}
+    <a href="{% if item.id == 'fixed-assets' %}{{ url_for('assets.list_assets') }}{% else %}{{ url_for('reports.account_breakdown', code=item.code) }}{% endif %}" class="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all group relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-8 text-gray-50 group-hover:text-indigo-50 transition-colors">
+            <i class="fas fa-fingerprint text-6xl"></i>
+        </div>
+        
+        <div class="relative z-10">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black tracking-widest border border-indigo-100">
+                    {{ item.code }}
+                </span>
+            </div>
+            
+            <h3 class="text-xl font-black text-gray-800 mb-2 group-hover:text-indigo-600 transition-colors">{{ item.name }}</h3>
+            <p class="text-3xl font-black text-gray-900 tracking-tighter mb-8">৳ {{ "{:,.2f}".format(item.total) }}</p>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between items-end">
+                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                        {% if cat_type == 'revenue' %}Revenue Share
+                        {% elif cat_type == 'asset' %}Portfolio Weight
+                        {% else %}Expense Ratio{% endif %}
+                    </span>
+                    <span class="text-[10px] font-black text-indigo-600">{{ ((item.total / (total_all or 1)) * 100)|round(1) }}%</span>
+                </div>
+                <div class="w-full bg-gray-50 h-2 rounded-full overflow-hidden">
+                    <div class="bg-indigo-500 h-full transition-all duration-1000 group-hover:bg-indigo-400" style="width: {{ (item.total / (total_all or 1)) * 100 }}%"></div>
+                </div>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+{% if not summary_data %}
+<div class="bg-white rounded-[3rem] p-32 text-center border border-dashed border-gray-200">
+    <div class="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-8 text-gray-300 text-4xl">
+        <i class="fas fa-folder-open"></i>
+    </div>
+    <h3 class="text-2xl font-black text-gray-800 uppercase tracking-tighter">No data available</h3>
+    <p class="text-gray-400 font-bold max-w-xs mx-auto mt-4 text-sm">We couldn't find any {{ cat_type }} records for the selected period.</p>
+</div>
+{% endif %}
+{% endblock %}

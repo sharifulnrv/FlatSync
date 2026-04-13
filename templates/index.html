@@ -3,43 +3,93 @@
 {% block title %}Dashboard - PropManage{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
     <!-- Summary Cards -->
-    <a href="{{ url_for('main.income_breakdown') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-indigo-500 hover:shadow-md transition-all group">
+    <a href="{{ url_for('main.category_summary_report', type='revenue') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
         <div class="bg-indigo-50 p-4 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all"><i class="fas fa-wallet text-xl"></i></div>
         <div>
             <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Total Income</p>
             <p class="text-lg font-black text-gray-800">৳ {{ stats.total_income }}</p>
         </div>
     </a>
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-rose-500">
-        <div class="bg-rose-50 p-4 rounded-xl text-rose-600"><i class="fas fa-receipt text-xl"></i></div>
+    <a href="{{ url_for('main.category_summary_report', type='expense') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-rose-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-rose-50 p-4 rounded-xl text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all"><i class="fas fa-receipt text-xl"></i></div>
         <div>
             <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Total Cost</p>
             <p class="text-lg font-black text-gray-800">৳ {{ stats.total_cost }}</p>
         </div>
-    </div>
-    <a href="{{ url_for('main.balance_breakdown') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-emerald-500 hover:shadow-md transition-all group">
-        <div class="bg-emerald-50 p-4 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all"><i class="fas fa-university text-xl"></i></div>
+    </a>
+    <a href="{{ url_for('main.category_summary_report', type='asset') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-emerald-50 p-4 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all"><i class="fas fa-landmark text-xl"></i></div>
+        <div>
+            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Total Assets</p>
+            <p class="text-lg font-black text-gray-800">৳ {{ stats.total_assets }}</p>
+        </div>
+    </a>
+    <a href="{{ url_for('main.balance_breakdown') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-blue-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-blue-50 p-4 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all"><i class="fas fa-university text-xl"></i></div>
         <div>
             <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Current Balance</p>
             <p class="text-lg font-black text-gray-800">৳ {{ stats.current_balance }}</p>
         </div>
     </a>
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-rose-500">
-        <div class="bg-rose-50 p-4 rounded-xl text-rose-600"><i class="fas fa-exclamation-circle text-xl"></i></div>
+    <a href="{{ url_for('reports.due_report') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-rose-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-rose-50 p-4 rounded-xl text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all"><i class="fas fa-exclamation-circle text-xl"></i></div>
         <div>
             <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Outstanding Due</p>
             <p class="text-lg font-black text-rose-600">৳ {{ stats.total_due }}</p>
         </div>
-    </div>
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-amber-500">
-        <div class="bg-amber-50 p-4 rounded-xl text-amber-600"><i class="fas fa-house-user text-xl"></i></div>
+    </a>
+    <a href="{{ url_for('units.list_units') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-amber-50 p-4 rounded-xl text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all"><i class="fas fa-house-user text-xl"></i></div>
         <div>
             <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Occupancy</p>
             <p class="text-lg font-black text-gray-800">{{ stats.occupied }}/{{ stats.total_units }}</p>
         </div>
-    </div>
+    </a>
+</div>
+
+<!-- Detailed Liquidity Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <a href="{{ url_for('main.balance_breakdown', type='cash') }}" class="bg-indigo-50/40 p-6 rounded-[2rem] border border-indigo-100 flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all shadow-sm">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-white text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all"><i class="fas fa-wallet"></i></div>
+            <div>
+                <p class="text-[10px] text-indigo-400 font-black uppercase tracking-widest">Cash in Hand</p>
+                <p class="text-xl font-black text-indigo-900">৳ {{ stats.cash_balance }}</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('main.balance_breakdown', type='bank') }}" class="bg-emerald-50/40 p-6 rounded-[2rem] border border-emerald-100 flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all shadow-sm">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-white text-emerald-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:bg-emerald-600 group-hover:text-white transition-all"><i class="fas fa-university"></i></div>
+            <div>
+                <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest">Bank Balance</p>
+                <p class="text-xl font-black text-emerald-900">৳ {{ stats.bank_balance }}</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('main.category_summary_report', type='event') }}" class="bg-amber-50/40 p-6 rounded-[2rem] border border-amber-100 flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all shadow-sm">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-white text-amber-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:bg-amber-600 group-hover:text-white transition-all"><i class="fas fa-piggy-bank"></i></div>
+            <div>
+                <p class="text-[10px] text-amber-400 font-black uppercase tracking-widest">Event Fund</p>
+                <p class="text-xl font-black text-amber-900">৳ {{ stats.fund_balance }}</p>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ url_for('main.balance_breakdown') }}" class="bg-slate-50/40 p-6 rounded-[2rem] border border-slate-100 flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all shadow-sm">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-white text-slate-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:bg-slate-600 group-hover:text-white transition-all"><i class="fas fa-shield-alt"></i></div>
+            <div>
+                <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Net Surplus</p>
+                <p class="text-xl font-black text-slate-900">৳ {{ stats.current_balance }}</p>
+            </div>
+        </div>
+    </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

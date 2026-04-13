@@ -1,0 +1,69 @@
+{% extends "pdf_report_base.html" if is_pdf else "base.html" %}
+
+{% block header %}Multi-Unit Ledger{% endblock %}
+{% block pdf_header %}{{ title|default('Consolidated Multi-Unit Ownership Ledger') }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+    <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-10 flex justify-between items-center no-print">
+        <div>
+            <h2 class="text-3xl font-black text-gray-800 uppercase tracking-tighter">Consolidated Resident Ledger</h2>
+            <p class="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">Visibility for owners with multiple properties</p>
+        </div>
+        <div class="flex gap-4">
+            <a href="{{ url_for('reports.multi_unit_ledger_pdf') }}" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center shadow-lg shadow-indigo-100">
+                <i class="fas fa-file-pdf mr-2"></i> Download PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto bg-white rounded-[2.5rem] shadow-xl border border-gray-100">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-gray-50/50">
+                    <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Resident / Owner</th>
+                    <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Units Owned</th>
+                    <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Unit Breakdowns (Dues)</th>
+                    <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total Outstanding</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for data in ledger_data|sort(attribute='total_balance', reverse=True) %}
+                <tr class="hover:bg-gray-50/30 transition-colors">
+                    <td class="px-8 py-8 align-top">
+                        <p class="text-lg font-black text-gray-800">{{ data.resident_name }}</p>
+                        <p class="text-xs font-bold text-gray-400">{{ data.phone }}</p>
+                    </td>
+                    <td class="px-8 py-8 align-top">
+                        <div class="flex flex-wrap gap-2">
+                            {% for u in data.units %}
+                            <span class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black">
+                                Unit {{ u.unit_number }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td class="px-8 py-8 text-right align-top">
+                        <div class="space-y-1">
+                            {% for u in data.units %}
+                            <div class="text-[11px] font-bold text-gray-500">
+                                Unit {{ u.unit_number }}: <span class="{% if u.balance > 0 %}text-rose-500{% else %}text-emerald-500{% endif %}">৳{{ "%.2f"|format(u.balance) }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td class="px-8 py-8 text-right align-top">
+                        <p class="text-xl font-black {% if data.total_balance > 0 %}text-rose-600{% else %}text-gray-400{% endif %}">
+                            ৳{{ "{:,.2f}".format(data.total_balance) }}
+                        </p>
+                        {% if data.total_balance > 0 %}
+                        <span class="text-[9px] font-black uppercase text-rose-400 tracking-widest">Immediate Attention Required</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

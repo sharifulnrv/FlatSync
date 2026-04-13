@@ -1,0 +1,127 @@
+{% extends "pdf_report_base.html" if is_pdf else "base.html" %}
+
+{% block header %}Details: {{ account.name }}{% endblock %}
+{% block pdf_header %}{{ title|default('General Ledger: Account Breakdown Statement') }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8 p-8">
+    <!-- Header Card -->
+    <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <span class="px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">{{ account.type }}</span>
+                <span class="text-gray-400 font-bold text-sm">#{{ account.code }}</span>
+            </div>
+            <h2 class="text-4xl font-black text-gray-800">{{ account.name }}</h2>
+            <p class="text-gray-500 font-medium mt-1">Period: {{ from_date }} to {{ to_date }}</p>
+        </div>
+        <div class="text-right">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Cumulative Balance</p>
+            <p class="text-4xl font-black {% if total_balance < 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
+                ৳{{ "%.2f"|format(total_balance) }}
+            </p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Main Ledger Section -->
+        <div class="lg:col-span-2 space-y-8">
+            <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+                <div class="p-8 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
+                    <h3 class="text-xl font-black text-gray-800">Transaction History</h3>
+                    <div class="flex gap-2">
+                        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Showing {{ entries|length }} entries</span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-gray-50/50">
+                                <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Debit</th>
+                                <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Credit</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            {% for entry in entries %}
+                            <tr class="hover:bg-gray-50/50 transition-colors">
+                                <td class="px-8 py-5 whitespace-nowrap">
+                                    <span class="text-sm font-bold text-gray-600">{{ entry.parent.date.strftime('%Y-%m-%d') }}</span>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <p class="text-sm font-black text-gray-800">{{ entry.parent.description }}</p>
+                                    {% if entry.customer %}
+                                    <span class="text-[10px] font-bold text-indigo-400 uppercase">Resident: {{ entry.customer.name }}</span>
+                                    {% elif entry.party %}
+                                    <span class="text-[10px] font-bold text-amber-500 uppercase">Party: {{ entry.party.name }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-8 py-5 text-right font-black text-sm text-gray-600">
+                                    {{ "%.2f"|format(entry.debit) if entry.debit > 0 else '—' }}
+                                </td>
+                                <td class="px-8 py-5 text-right font-black text-sm text-gray-600">
+                                    {{ "%.2f"|format(entry.credit) if entry.credit > 0 else '—' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Breakdown Section -->
+        <div class="space-y-8">
+            {% if resident_breakdown %}
+            <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 space-y-6">
+                <h3 class="text-lg font-black text-gray-800 border-b border-gray-50 pb-4">Revenue by Resident</h3>
+                <div class="space-y-4">
+                    {% for item in resident_breakdown|sort(attribute='total', reverse=True) %}
+                    <div class="flex justify-between items-center group">
+                        <div>
+                            <p class="text-sm font-black text-gray-700 group-hover:text-indigo-600 transition-colors">{{ item.name }}</p>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">Unit {{ item.unit }}</p>
+                        </div>
+                        <p class="font-black text-sm text-gray-600">৳{{ "%.2f"|format(item.total) }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if party_breakdown %}
+            <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 space-y-6">
+                <h3 class="text-lg font-black text-gray-800 border-b border-gray-50 pb-4">Breakdown by Vendor/Party</h3>
+                <div class="space-y-4">
+                    {% for item in party_breakdown|sort(attribute='total', reverse=True) %}
+                    <div class="flex justify-between items-center group">
+                        <div>
+                            <p class="text-sm font-black text-gray-700 group-hover:text-amber-600 transition-colors">{{ item.name }}</p>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">{{ item.type }}</p>
+                        </div>
+                        <p class="font-black text-sm text-gray-600">৳{{ "%.2f"|format(item.total) }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="bg-indigo-600 rounded-[2.5rem] shadow-xl shadow-indigo-100 p-8 text-white relative overflow-hidden">
+                <div class="relative z-10">
+                    <h4 class="text-xs font-black uppercase tracking-[0.2em] opacity-80 mb-6">Action Center</h4>
+                    <div class="space-y-3">
+                        <a href="{{ url_for('reports.account_breakdown_pdf', account_id=account.id, from_date=from_date, to_date=to_date) }}" class="block w-full text-center bg-indigo-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-800 transition-all shadow-xl">
+                            Download PDF
+                        </a>
+                        <a href="{{ url_for('reports.pnl_statement') }}" class="block w-full text-center bg-white text-indigo-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-indigo-50">
+                            Return to P&L
+                        </a>
+                    </div>
+                </div>
+                <div class="absolute -right-20 -bottom-20 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

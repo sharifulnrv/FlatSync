@@ -38,9 +38,11 @@ class JournalEntry(db.Model):
     reference = db.Column(db.String(50)) # e.g., Invoice #88
     monthly_bill_id = db.Column(db.Integer, db.ForeignKey('monthly_bill.id'), nullable=True)
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=True)
+    bill_journal_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
     
     monthly_bill = db.relationship('MonthlyBill', backref='transactions')
     event = db.relationship('Event', backref='transactions')
+    bill_payments = db.relationship('JournalEntry', backref=db.backref('settled_bill', remote_side=[id]))
     entries = db.relationship('LedgerEntry', backref='parent', lazy=True)
 
 class LedgerEntry(db.Model):
@@ -52,10 +54,12 @@ class LedgerEntry(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True) # For resident tracking
     party_id = db.Column(db.Integer, db.ForeignKey('party.id'), nullable=True) # For vendor/third-party tracking
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=True) # Linked to a specific event
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True) # Linked to a specific asset
     account = db.relationship('Account', backref='ledger_entries')
     event = db.relationship('Event', backref='ledger_entries')
     customer = db.relationship('Customer', backref='ledger_entries')
     party = db.relationship('Party', backref='ledger_entries')
+    asset = db.relationship('Asset', backref='ledger_entries')
 
 class Party(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -71,6 +75,25 @@ class Event(db.Model):
     date = db.Column(db.Date)
     description = db.Column(db.Text)
     status = db.Column(db.String(20), default='planned') # planned, active, completed
+    
+    # Relationships for isolated finance
+    finance_records = db.relationship('EventFinance', backref='event', lazy=True, cascade="all, delete-orphan")
+
+class EventFinance(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.String(255))
+    type = db.Column(db.String(20)) # 'income' or 'expense'
+    amount = db.Column(db.Float, default=0.0)
+    category_id = db.Column(db.Integer, db.ForeignKey('event_category.id'), nullable=True)
+    
+    category = db.relationship('EventCategory', backref='records')
+
+class EventCategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    type = db.Column(db.String(20), default='expense') # income, expense, or both
 
 class AssetCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -107,10 +130,15 @@ class Asset(db.Model):
 class AssetTransaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
+    journal_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
+    party_id = db.Column(db.Integer, db.ForeignKey('party.id'), nullable=True)
     date = db.Column(db.Date, default=datetime.utcnow().date)
     description = db.Column(db.String(255))
     type = db.Column(db.String(20), default='maintenance') # maintenance, depreciation, sale, appreciation
     amount = db.Column(db.Float, default=0.0)
+    
+    party = db.relationship('Party', backref='asset_transactions')
+    journal = db.relationship('JournalEntry', backref='asset_transaction', uselist=False)
 
 class MaintenanceTicket(db.Model):
     id = db.Column(db.Integer, primary_key=True)

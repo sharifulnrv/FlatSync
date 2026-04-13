@@ -1,0 +1,259 @@
+{% extends "pdf_report_base.html" if is_pdf else "base.html" %}
+
+{% block header %}Invoice: #{{ journal.id }}{% endblock %}
+
+{% block content %}
+{% if is_pdf %}
+<!-- ELITE MINIMALIST PDF VERSION (Strict CSS 2.1 Compatibility for xhtml2pdf) -->
+<div style="font-family: Helvetica, Arial, sans-serif; color: #1e293b; padding: 10pt; line-height: 1.4;">
+    
+    <!-- Top Accent Bar -->
+    <div style="background-color: #1e293b; height: 6pt; width: 100%; margin-bottom: 25pt;"></div>
+
+    <!-- Header Section -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 40pt;">
+        <tr>
+            <td style="width: 50%; vertical-align: top;">
+                <h1 style="font-size: 32pt; font-weight: bold; color: #1e293b; margin: 0; letter-spacing: -1pt;">
+                    {% if journal.reference == 'PAYMENT' %}VOUCHER{% else %}INVOICE{% endif %}
+                </h1>
+                <p style="font-size: 10pt; color: #64748b; margin: 4pt 0 0 0; text-transform: uppercase; font-weight: bold; letter-spacing: 1pt;">
+                    Registry No: #{{ 'PAY' if journal.reference == 'PAYMENT' else 'INV' }}-{{ journal.id }}
+                </p>
+            </td>
+            <td style="width: 50%; text-align: right; vertical-align: top;">
+                <h2 style="font-size: 18pt; font-weight: bold; color: #1e293b; margin: 0;">{{ config.COMPANY_NAME|upper }}</h2>
+                <p style="font-size: 9pt; color: #64748b; margin: 4pt 0 0 0; line-height: 1.2;">
+                    {{ config.COMPANY_ADDRESS }}<br>
+                    Date: {{ journal.date.strftime('%d %B, %Y') }}
+                </p>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Billing Info Section -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 40pt;">
+        <tr>
+            <td style="width: 45%; vertical-align: top; border-right: 1pt solid #e2e8f0; padding-right: 20pt;">
+                <p style="font-size: 8pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 1pt; margin-bottom: 6pt;">
+                    {% if journal.reference == 'PAYMENT' %}Paid To{% else %}Bill To Recipient{% endif %}
+                </p>
+                <p style="font-size: 12pt; font-weight: bold; color: #0f172a; margin: 0;">{% if party %}{{ party.name }}{% else %}N/A{% endif %}</p>
+                <p style="font-size: 9pt; color: #64748b; margin: 2pt 0 0 0;">Contact: {% if party %}{{ party.phone }}{% endif %}</p>
+            </td>
+            <td style="width: 55%; vertical-align: top; padding-left: 20pt;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="font-size: 8pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; padding-bottom: 4pt;">
+                            {% if journal.reference == 'PAYMENT' %}Method{% else %}Payment Status{% endif %}
+                        </td>
+                        <td style="font-size: 8pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; padding-bottom: 4pt; text-align: right;">Reference</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 10pt; font-weight: bold; color: {% if status == 'PAID' or journal.reference == 'PAYMENT' %}#059669{% else %}#e11d48{% endif %};">
+                            {% if journal.reference == 'PAYMENT' %}SETTLEMENT{% else %}{{ status }}{% endif %}
+                        </td>
+                        <td style="font-size: 10pt; font-weight: bold; color: #0f172a; text-align: right;">{{ journal.reference or 'OFS-ERP-LOG' }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Line Items Table -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30pt;">
+        <thead>
+            <tr style="background-color: #1e293b;">
+                <th style="color: #ffffff; padding: 12pt 15pt; text-align: left; font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1pt;">Service Detail & Description</th>
+                <th style="color: #ffffff; padding: 12pt 15pt; text-align: right; font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1pt;">
+                    {% if journal.reference == 'PAYMENT' %}Paid Amount{% else %}Total (BDT){% endif %}
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="padding: 20pt 15pt; border-bottom: 1pt solid #e2e8f0; background-color: #fafafa;">
+                    <p style="font-size: 11pt; font-weight: bold; color: #0f172a; margin: 0 0 4pt 0;">{{ journal.description }}</p>
+                    <p style="font-size: 8pt; color: #94a3b8; font-family: monospace;">UUID: AST-LOG-{{ journal.id }}</p>
+                </td>
+                <td style="padding: 20pt 15pt; border-bottom: 1pt solid #e2e8f0; text-align: right; background-color: #fafafa; vertical-align: middle;">
+                    <p style="font-size: 14pt; font-weight: bold; color: #0f172a;">BDT {{ "{:,.2f}".format(total_amount) }}</p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Summary Section -->
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="width: 60%; vertical-align: top; padding-right: 40pt;">
+                <p style="font-size: 8pt; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 1pt; margin-bottom: 8pt;">Authorized Terms</p>
+                <div style="font-size: 9pt; color: #64748b; line-height: 1.6;">
+                    1. Settlement recorded in accordance with ERP cycle.<br>
+                    2. Maintain registry copy for audit purposes.<br>
+                    3. Authenticated per association protocol.
+                </div>
+            </td>
+            <td style="width: 40%; vertical-align: top;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    {% if journal.reference != 'PAYMENT' %}
+                    <tr>
+                        <td style="padding: 6pt 0; font-size: 9pt; color: #64748b; font-weight: bold;">Gross Total</td>
+                        <td style="padding: 6pt 0; text-align: right; font-size: 10pt; color: #0f172a; font-weight: bold;">BDT {{ "{:,.2f}".format(total_amount) }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6pt 0; font-size: 9pt; color: #059669; font-weight: bold;">Amount Paid</td>
+                        <td style="padding: 6pt 0; text-align: right; font-size: 10pt; color: #059669; font-weight: bold;">- BDT {{ "{:,.2f}".format(total_paid) }}</td>
+                    </tr>
+                    <tr style="background-color: #f8fafc;">
+                        <td style="padding: 15pt 10pt; font-size: 10pt; font-weight: bold; color: #1e293b; border-top: 2pt solid #1e293b;">NET BALANCE DUE</td>
+                        <td style="padding: 15pt 10pt; text-align: right; font-size: 20pt; font-weight: bold; color: #1e293b; border-top: 2pt solid #1e293b;">BDT {{ "{:,.2f}".format(balance_due) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr style="background-color: #f8fafc;">
+                        <td style="padding: 15pt 10pt; font-size: 10pt; font-weight: bold; color: #1e293b; border-top: 2pt solid #1e293b;">TOTAL PAID</td>
+                        <td style="padding: 15pt 10pt; text-align: right; font-size: 20pt; font-weight: bold; color: #1e293b; border-top: 2pt solid #1e293b;">BDT {{ "{:,.2f}".format(total_amount) }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Signature Block -->
+    <div style="margin-top: 60pt; text-align: right;">
+        <div style="border-bottom: 1pt solid #1e293b; width: 220pt; margin-left: auto; margin-bottom: 6pt;"></div>
+        <p style="font-size: 9pt; font-weight: bold; color: #1e293b; text-transform: uppercase; letter-spacing: 1pt;">Authorized Issuing Authority</p>
+    </div>
+
+</div>
+{% else %}
+<!-- WEB/SCREEN VERSION (Tailwind Professional) -->
+<div class="max-w-5xl mx-auto p-12 mt-8 mb-20 printable-area transition-all duration-300">
+    <div class="bg-white border-t-[12px] border-slate-900 rounded-[3rem] p-16 shadow-2xl relative overflow-hidden">
+        
+        <div class="flex justify-between items-start mb-20">
+            <div>
+                <h1 class="text-6xl font-black text-slate-900 tracking-tighter mb-2 italic uppercase">
+                    {{ 'Voucher' if journal.reference == 'PAYMENT' else 'Invoice' }}
+                </h1>
+                <p class="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Audit Registry: #{{ 'PAY' if journal.reference == 'PAYMENT' else 'INV' }}-{{ journal.id }}</p>
+            </div>
+            <div class="text-right">
+                <h2 class="text-4xl font-black text-slate-900 tracking-tighter">{{ config.COMPANY_NAME|upper }}</h2>
+                <p class="text-[12px] font-bold text-slate-400 mt-2 max-w-xs ml-auto leading-relaxed">{{ config.COMPANY_ADDRESS }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-20 mb-20">
+            <div class="border-l-8 border-slate-900 pl-10 py-2">
+                <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">
+                    {{ 'Paid To' if journal.reference == 'PAYMENT' else 'Recipient Details' }}
+                </p>
+                <h3 class="text-4xl font-black text-slate-900 uppercase">{% if party %}{{ party.name }}{% else %}N/A{% endif %}</h3>
+                <p class="text-lg font-bold text-slate-500 mt-2">Contact: {% if party %}{{ party.phone }}{% endif %}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-y-4 text-sm bg-slate-50 p-12 rounded-[2.5rem] border-2 border-slate-100">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date:</span>
+                <span class="font-black text-slate-900">{{ journal.date.strftime('%d %B, %Y') }}</span>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status:</span>
+                <span class="font-black {% if status == 'PAID' or journal.reference == 'PAYMENT' %}text-emerald-500{% else %}text-rose-500{% endif %} uppercase tracking-widest">
+                    {{ 'SETTLEMENT' if journal.reference == 'PAYMENT' else status }}
+                </span>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference:</span>
+                <span class="font-black text-indigo-600 uppercase tracking-tighter">{{ journal.reference or 'ASSOCIATION BILLING' }}</span>
+            </div>
+        </div>
+
+        <table class="w-full mb-12 rounded-[2rem] overflow-hidden">
+            <thead>
+                <tr class="bg-slate-900 text-white">
+                    <th class="py-10 px-12 text-left text-[11px] font-black uppercase tracking-[0.5em]">Description of Service</th>
+                    <th class="py-10 px-12 text-right text-[11px] font-black uppercase tracking-[0.5em]">
+                        {{ 'Paid Amount' if journal.reference == 'PAYMENT' else 'Total BDT' }}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="bg-slate-50/50 border-b-2 border-slate-100">
+                    <td class="py-20 px-12">
+                        <p class="text-5xl font-black text-slate-900 tracking-tighter mb-4">{{ journal.description }}</p>
+                        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest bg-white w-fit px-4 py-1 rounded-full border">Internal ID: AST-LOG-{{ journal.id }}</p>
+                    </td>
+                    <td class="py-20 px-12 text-right align-middle">
+                        <p class="text-6xl font-black text-slate-900 tracking-tighter">BDT {{ "{:,.2f}".format(total_amount) }}</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="flex justify-between items-end">
+            <div class="max-w-md">
+                <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-6">Execution Terms</p>
+                <p class="text-[13px] text-slate-500 font-bold leading-relaxed">
+                    1. Settlement recorded in accordance with ERP cycle.<br>
+                    2. Maintain registry copy for audit purposes.<br>
+                    3. Authenticated per association protocol.
+                </p>
+            </div>
+            <div class="w-[30rem] space-y-6">
+                {% if journal.reference != 'PAYMENT' %}
+                <div class="flex justify-between items-center text-sm px-6">
+                    <span class="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Gross Amount</span>
+                    <span class="font-black text-slate-800 text-xl">BDT {{ "{:,.2f}".format(total_amount) }}</span>
+                </div>
+                <div class="flex justify-between items-center text-sm px-6">
+                    <span class="font-bold text-emerald-400 uppercase tracking-widest text-[10px]">Total Settled</span>
+                    <span class="font-black text-emerald-500 text-xl">- BDT {{ "{:,.2f}".format(total_paid) }}</span>
+                </div>
+                <div class="bg-slate-900 text-white p-12 rounded-[3.5rem] shadow-2xl shadow-slate-300 transform scale-110 origin-right translate-x-4">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 px-4">Net Balance Due</p>
+                    <div class="text-7xl font-black tracking-tighter text-white px-4">
+                        <span class="text-3xl mr-6 text-slate-500 italic">BDT</span>
+                        {{ "{:,.2f}".format(balance_due) }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-emerald-500 text-white p-12 rounded-[3.5rem] shadow-2xl shadow-emerald-100 transform scale-110 origin-right translate-x-4">
+                    <p class="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-6 px-4">Consolidated Settlement Amount</p>
+                    <div class="text-7xl font-black tracking-tighter text-white px-4">
+                        <span class="text-3xl mr-6 text-emerald-200 italic">BDT</span>
+                        {{ "{:,.2f}".format(total_amount) }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mt-24 flex justify-end">
+            <div class="text-center w-96 group">
+                <div class="border-b-[6px] border-slate-900 h-20 mb-6 mx-12"></div>
+                <p class="text-[14px] font-black text-slate-900 uppercase tracking-[0.4em]">Authorized Issuing Authority</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Navigation Bars -->
+<div class="max-w-5xl mx-auto mb-32 flex justify-center items-center space-x-8 no-print">
+    <button onclick="requestDownload()" class="group px-16 py-8 bg-slate-900 text-white rounded-3xl font-black text-sm uppercase tracking-[0.4em] shadow-2xl hover:bg-black hover:-translate-y-2 transition-all flex items-center">
+        <i class="fas fa-file-pdf mr-6 text-2xl text-slate-400"></i> 
+        Download Pro Invoice
+    </button>
+    <a href="javascript:history.back()" class="px-12 py-8 bg-white border-2 border-slate-100 text-slate-400 rounded-3xl font-black text-sm uppercase tracking-widest hover:border-slate-900 hover:text-slate-900 transition-all flex items-center">
+        <i class="fas fa-arrow-left mr-5 text-xl"></i> Back
+    </a>
+</div>
+
+<script>
+    function requestDownload() {
+        const path = "{{ url_for('accounting.download_invoice_pdf', journal_id=journal.id) }}";
+        if (window.pywebview && window.pywebview.api) {
+            window.pywebview.api.download_url(path);
+        } else {
+            window.location.href = path;
+        }
+    }
+</script>
+{% endblock %}

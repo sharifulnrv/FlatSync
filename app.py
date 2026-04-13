@@ -59,6 +59,15 @@ def create_app(config_class=Config):
     # Register Blueprints
     from routes.main import main_bp
     from routes.units import units_bp
+    
+    # Custom Jinja Filters
+    @app.template_filter('words')
+    def to_words_filter(n):
+        try:
+            from num2words import num2words
+            return num2words(float(n), lang='en').capitalize() + " Taka Only"
+        except:
+            return str(n)
     from routes.accounting import accounting_bp
     from routes.assets import assets_bp
     from routes.maintenance import maintenance_bp
@@ -77,6 +86,14 @@ def create_app(config_class=Config):
     app.register_blueprint(parties_bp)
     app.register_blueprint(service_charges_bp)
 
+    @app.context_processor
+    def utility_processor():
+        def sum_debits(journal):
+            return sum(e.debit for e in journal.entries if e.debit > 0)
+        def sum_credits(journal):
+            return sum(e.credit for e in journal.entries if e.credit > 0)
+        return dict(sum_debits=sum_debits, sum_credits=sum_credits)
+
     return app
 
 def seed_coa():
@@ -85,28 +102,51 @@ def seed_coa():
     
     # Comprehensive 70-Account COA (Core Categories)
     coa_data = [
+        # ASSETS (3XXX)
         ('3000', 'ASSETS', 'asset', True),
+        ('3010', 'Fixed Assets (Buildings & Equipment)', 'asset', False),
         ('3100', 'Cash & Bank', 'asset', True),
         ('3110', 'Cash in Hand', 'asset', False),
         ('3120', 'Operating Bank A/C', 'asset', False),
+        ('3130', 'Petty Cash', 'asset', False),
         ('3150', 'Event Fund', 'asset', False),
         ('3930', 'Service Charge Receivable', 'asset', False),
         ('3995', 'Event Participation Receivable', 'asset', False),
         
+        # LIABILITIES (2XXX)
         ('2000', 'LIABILITIES', 'liability', True),
         ('2100', 'Accounts Payable', 'liability', False),
+        ('2200', 'Accrued Expenses', 'liability', False),
+        ('2300', 'Resident Security Deposits', 'liability', False),
         
+        # EQUITY (1XXX)
         ('1000', 'EQUITY', 'equity', True),
-        ('1100', 'Accumulated Fund', 'equity', False),
+        ('1100', 'Accumulated Fund (Retained Earnings)', 'equity', False),
         
+        # REVENUE (4XXX)
         ('4000', 'REVENUE', 'revenue', True),
         ('4100', 'Service Charge Income', 'revenue', False),
         ('4110', 'Late Penalty Income', 'revenue', False),
+        ('4120', 'Service Charge Arrears (Previous Years)', 'revenue', False),
+        ('4300', 'Facility Rental Income', 'revenue', False),
+        ('4400', 'Utility Recovery Income', 'revenue', False),
         ('4700', 'Event Revenue', 'revenue', False),
+        ('4900', 'Other Income', 'revenue', False),
         
+        # EXPENSES (5XXX)
         ('5000', 'EXPENSES', 'expense', True),
-        ('5100', 'Management & Operating', 'expense', True),
+        ('5100', 'Management & Salaries', 'expense', False),
+        ('5200', 'Electricity Expense (Common Areas)', 'expense', False),
+        ('5210', 'Water & Sewerage Expense', 'expense', False),
+        ('5220', 'Gas & Fuel Expense', 'expense', False),
+        ('5300', 'Security & Guard Services', 'expense', False),
+        ('5400', 'Cleaning & Janitorial Services', 'expense', False),
+        ('5500', 'Generator Operating & Fuel', 'expense', False),
+        ('5600', 'Lift/Elevator Maintenance', 'expense', False),
+        ('5700', 'Printing & Stationery', 'expense', False),
+        ('5710', 'Legal & Audit Fees', 'expense', False),
         ('5800', 'Event Expense', 'expense', False),
+        ('5900', 'Depreciation Expense', 'expense', False),
     ]
     for code, name, acc_type, summary in coa_data:
         acc = Account(code=code, name=name, type=acc_type, is_summary=summary)
@@ -144,7 +184,7 @@ class JSAPI:
         webbrowser.open(url)
 
 def run_server(app):
-    app.run(port=5999, debug=False, use_reloader=False)
+    app.run(port=5999, debug=True, use_reloader=False)
 
 def wait_for_server(window):
     """ Poll the server until it's ready, then switch from loading screen to app """

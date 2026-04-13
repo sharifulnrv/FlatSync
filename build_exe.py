@@ -68,6 +68,9 @@ def run_build():
         "--collect-all", "flask_login",
         "--collect-all", "sqlalchemy",
         "--collect-all", "webview",
+        "--collect-all", "reportlab",
+        "--collect-all", "xhtml2pdf",
+        "--collect-all", "num2words",
         "app.py"
     ]
     

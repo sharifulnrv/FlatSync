@@ -5,129 +5,222 @@
 {% block content %}
 <div class="space-y-12">
     <!-- Event Overview Card -->
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-        <div class="bg-indigo-900 p-12 text-white relative">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h2 class="text-4xl font-black mb-2">{{ event.name }}</h2>
+    <div class="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+        <div class="bg-indigo-900 p-6 md:p-12 text-white relative">
+            <div class="flex flex-col md:flex-row justify-between items-start gap-8">
+                <div class="w-full md:w-auto">
+                    <h2 class="text-3xl md:text-4xl font-black mb-2 tracking-tight">{{ event.name }}</h2>
                     <div class="flex items-center space-x-3">
                         <span class="px-3 py-1 bg-indigo-500/30 border border-indigo-500/50 rounded-lg text-[10px] font-black uppercase tracking-widest text-indigo-300">
                             {{ event.status }}
                         </span>
-                        <p class="text-indigo-300 font-bold uppercase tracking-widest text-xs">{{ event.date.strftime('%B %d, %Y') if event.date else 'TBD' }}</p>
+                        <p class="text-indigo-300 font-bold uppercase tracking-widest text-xs">{{ event.date.strftime('%B %d, %Y') if event.date else 'Date TBD' }}</p>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
+                <div class="flex flex-wrap items-center gap-4 w-full md:w-auto justify-start md:justify-end">
                     {% if event.status != 'completed' %}
                     <form action="{{ url_for('events.complete_event', id=event.id) }}" method="POST">
-                        <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20">
-                            <i class="fas fa-check-double mr-2"></i> Mark Completed
+                        <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20">
+                            <i class="fas fa-check-double mr-2"></i> Complete
                         </button>
                     </form>
                     {% endif %}
                     
-                    <a href="{{ url_for('events.edit_event', id=event.id) }}" class="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all">
+                    <a href="{{ url_for('events.edit_event', id=event.id) }}" class="bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all">
                         <i class="fas fa-edit mr-2"></i> Edit
                     </a>
-
-                    <form action="{{ url_for('events.delete_event', id=event.id) }}" method="POST" onsubmit="return confirm('Permanently delete {{ event.name }}? This cannot be undone.')">
-                        <button type="submit" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-100 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-rose-500/30 transition-all">
+                    
+                    <form action="{{ url_for('events.delete_event', id=event.id) }}" method="POST" onsubmit="return confirm('Permanently delete {{ event.name }}?')">
+                        <button type="submit" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-100 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-rose-500/30 transition-all">
                             <i class="fas fa-trash-alt mr-2"></i> Delete
                         </button>
                     </form>
-
-                    <div class="text-right pl-6 border-l border-white/10">
-                        <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Net Event P&L</p>
-                        <p class="text-3xl font-black {{ 'text-emerald-400' if (income - expense) >= 0 else 'text-rose-400' }}">
-                            ৳ {{ "{:,.2f}".format(income - expense) }}
+                    
+                    <div class="text-left md:text-right pl-0 md:pl-6 border-l-0 md:border-l border-white/10 w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 mt-2 md:mt-0">
+                        <p class="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">Net Event Position</p>
+                        <p class="text-2xl md:text-3xl font-black {{ 'text-emerald-400' if net_position >= 0 else 'text-rose-400' }}">
+                            ৳ {{ "{:,.2f}".format(net_position) }}
                         </p>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div class="p-8 grid grid-cols-1 md:grid-cols-4 gap-6 bg-gray-50/50">
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Collectable</p>
-                <p class="text-xl font-black text-gray-800">৳ {{ "{:,.2f}".format(collectable) }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Collected</p>
-                <p class="text-xl font-black text-emerald-600">৳ {{ "{:,.2f}".format(collected) }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Total Due</p>
-                <p class="text-xl font-black text-rose-600">৳ {{ "{:,.2f}".format(due) }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Participation</p>
-                <p class="text-xl font-black text-indigo-600">{{ billed_resident_ids|length }} <span class="text-[10px] text-gray-400">Residents</span></p>
-            </div>
-        </div>
-        
-        <div class="p-8 border-t border-gray-100">
-            <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Event Description</h3>
-            <p class="text-gray-600 leading-relaxed font-medium text-sm">{{ event.description or 'No information added.' }}</p>
+
+        <div class="p-8 border-t border-gray-100 bg-gray-50/30">
+            <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Event Description</h3>
+            <p class="text-gray-600 leading-relaxed font-medium text-sm">{{ event.description or 'Operating without a direct brief.' }}</p>
         </div>
     </div>
 
-    <!-- Resident Participation & Billing (New Central Hub) -->
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div class="px-8 py-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-            <div>
-                <h3 class="font-bold text-gray-800">Resident Participation</h3>
-                <p class="text-[10px] text-indigo-500 font-black uppercase tracking-widest mt-1">
-                    {{ attendance_data|selectattr('is_billed', 'equalto', true)|list|length }} Residents Billed
-                </p>
+    <!-- HIGH PRIORITY: Cash Flow Hub -->
+    <div class="bg-indigo-900 rounded-[3rem] shadow-2xl border border-indigo-800 overflow-hidden p-1">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-1">
+            <div class="group relative bg-indigo-950/40 hover:bg-emerald-500/10 p-12 transition-all duration-500 cursor-pointer border-r border-indigo-800/50" onclick="openFinanceModal('income')">
+                <div class="relative z-10 flex items-center space-x-8">
+                    <div class="w-20 h-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-emerald-500/20 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-hand-holding-usd text-3xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-2">Record Inflow</p>
+                        <h4 class="text-3xl font-black text-white mb-2 tracking-tighter">Incoming Cash</h4>
+                        <span class="text-2xl font-black text-emerald-400 font-mono">৳ {{ "{:,.2f}".format(total_inflow) }}</span>
+                    </div>
+                </div>
             </div>
-            <button onclick="toggleModal('billingModal')" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
-                <i class="fas fa-users-cog mr-2"></i> Bulk Billing
+
+            <div class="group relative bg-indigo-950/40 hover:bg-rose-500/10 p-12 transition-all duration-500 cursor-pointer" onclick="openFinanceModal('expense')">
+                <div class="relative z-10 flex items-center space-x-8">
+                    <div class="w-20 h-20 bg-rose-500 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-rose-500/20 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-file-invoice-dollar text-3xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] mb-2">Record Outflow</p>
+                        <h4 class="text-3xl font-black text-white mb-2 tracking-tighter">Outgoing Expense</h4>
+                        <span class="text-2xl font-black text-rose-400 font-mono">৳ {{ "{:,.2f}".format(total_outflow) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-8">
+            <!-- 2. Budget Summary -->
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/20">
+                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest">Budget Summary by Category</h3>
+                </div>
+                <div class="p-8">
+                    <table class="w-full text-left">
+                        <tbody class="divide-y divide-gray-50">
+                            {% for item in event_summary %}
+                            <tr class="hover:bg-gray-50/50 transition-colors">
+                                <td class="py-5">
+                                    <span class="font-bold text-gray-700">{{ item.name }}</span>
+                                </td>
+                                <td class="py-5 text-right font-black font-mono {{ 'text-emerald-600' if item.balance >= 0 else 'text-rose-600' }}">
+                                    {{ '+' if item.balance >= 0 else '-' }} ৳ {{ "{:,.2f}".format(item.balance|abs) }}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2" class="py-8 text-center text-gray-300 italic">No activity yet.</td></tr>
+                            {% endfor %}
+                            <tr class="bg-gray-50/30 font-black">
+                                <td class="px-4 py-5 font-black text-gray-400 uppercase tracking-widest text-[10px]">Net Position</td>
+                                <td class="px-4 py-5 text-right text-xl {{ 'text-emerald-600' if net_position >= 0 else 'text-rose-600' }}">
+                                    ৳ {{ "{:,.2f}".format(net_position) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. Timeline -->
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/20">
+                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest">Transaction History</h3>
+                </div>
+                <div class="p-0">
+                    <table class="w-full text-left">
+                        <tbody class="divide-y divide-gray-50">
+                            {% for record in finance_records %}
+                            <tr class="hover:bg-gray-50/50 transition-colors group">
+                                <td class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase">{{ record.date.strftime('%d %b') }}</td>
+                                <td class="px-8 py-5">
+                                    <p class="font-bold text-gray-800 text-sm mb-1">{{ record.description }}</p>
+                                    <span class="px-2 py-0.5 bg-indigo-50 rounded text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                                        {{ record.category.name if record.category else 'General' }}
+                                    </span>
+                                </td>
+                                <td class="px-8 py-5 text-right font-black font-mono {{ 'text-emerald-600' if record.type == 'income' else 'text-rose-600' }}">
+                                    {{ '+' if record.type == 'income' else '-' }} ৳ {{ "{:,.2f}".format(record.amount) }}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="px-8 py-16 text-center text-gray-300 italic">No history available.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Categories -->
+        <div class="space-y-8">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+                <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest mb-6 border-b border-gray-50 pb-4">Manage Categories</h3>
+                <form action="{{ url_for('events.add_event_category') }}" method="POST" class="space-y-4 mb-8">
+                    <input type="text" name="name" required placeholder="Category Name" class="w-full px-5 py-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-xs text-gray-700">
+                    <div class="flex gap-2">
+                        <select name="type" class="flex-1 px-4 py-3 bg-gray-50 border-0 rounded-xl outline-none font-black text-[10px] uppercase tracking-widest text-gray-500">
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                        </select>
+                        <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg shadow-indigo-100"><i class="fas fa-plus"></i></button>
+                    </div>
+                </form>
+                <div class="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                    {% for cat in categories %}
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl group hover:border-gray-200 border border-transparent">
+                        <div>
+                            <p class="font-bold text-gray-700 text-xs">{{ cat.name }}</p>
+                            <p class="text-[9px] font-black uppercase tracking-widest {{ 'text-emerald-500' if cat.type == 'income' else 'text-rose-500' }}">{{ cat.type }}</p>
+                        </div>
+                        <form action="{{ url_for('events.delete_event_category', id=cat.id) }}" method="POST">
+                            <button type="submit" class="w-8 h-8 rounded-lg text-gray-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-times text-xs"></i></button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bg-indigo-50 rounded-3xl p-8 border border-indigo-100">
+                <h3 class="font-black text-indigo-900 text-[10px] uppercase tracking-widest mb-4">Resident Stats</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-gray-400 uppercase">Collected</span><span class="font-black text-emerald-600">৳ {{ "{:,.0f}".format(collected) }}</span></div>
+                    <div class="pt-4 border-t border-indigo-200/50 flex justify-between items-center"><span class="text-[10px] font-black text-indigo-900 uppercase">Total Due</span><span class="font-black text-rose-600">৳ {{ "{:,.0f}".format(due) }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Residents at Bottom -->
+    <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-10 py-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
+            <div>
+                <h3 class="text-xl font-black text-gray-800">Resident Participation</h3>
+                <p class="text-[10px] text-indigo-500 font-black uppercase tracking-[0.2em] mt-1">Direct individual billing and payment</p>
+            </div>
+            <button onclick="toggleModal('billingModal')" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
+                <i class="fas fa-users-cog mr-2"></i> Bulk Fee Assignment
             </button>
         </div>
-        <div class="p-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {% for res in attendance_data %}
                 <div onclick="handleResidentClick(this)" 
-                     data-id="{{ res.resident_id }}" 
-                     data-unit-id="{{ res.unit_id }}"
-                     data-name="{{ res.resident_name }}" 
-                     data-balance="{{ res.balance }}"
-                     data-billed="{{ 'true' if res.is_billed else 'false' }}"
-                     data-payment-id="{{ res.payment_id or '' }}"
-                     class="group cursor-pointer p-5 rounded-2xl border-2 transition-all relative {{ 'bg-indigo-50/30 border-indigo-100 hover:border-indigo-300' if res.is_billed else 'bg-gray-50 border-transparent hover:border-gray-200' }}">
-                    
-                    {% if res.payment_id %}
-                    <a href="{{ url_for('accounting.receipt_print', journal_id=res.payment_id) }}" target="_blank" onclick="event.stopPropagation()" class="absolute top-4 right-4 p-2 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-200 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10" title="Download Money Receipt">
-                        <i class="fas fa-receipt text-xs"></i>
-                    </a>
-                    {% endif %}
-                    <div class="flex items-center space-x-4 mb-4">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm {{ 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' if res.is_billed else 'bg-gray-200 text-gray-400' }}">
-                            {{ res.unit }}
-                        </div>
-                        <div class="overflow-hidden">
-                            <p class="font-black text-gray-800 text-xs truncate">{{ res.resident_name }}</p>
-                            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest">
-                                {{ 'Billed' if res.is_billed else 'Not Billed' }}
-                            </p>
-                        </div>
+                     data-id="{{ res.resident_id }}" data-unit-id="{{ res.unit_id }}" data-name="{{ res.resident_name }}" data-balance="{{ res.balance }}" data-billed="{{ 'true' if res.is_billed else 'false' }}"
+                     class="group cursor-pointer p-6 rounded-[2rem] border-2 transition-all relative {{ 'bg-indigo-50/40 border-indigo-200/50 hover:border-indigo-400' if res.is_billed else 'bg-gray-50/50 border-transparent hover:border-gray-300' }}">
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm mb-6 {{ 'bg-indigo-600 text-white' if res.is_billed else 'bg-gray-200 text-gray-400' }}">
+                        {{ res.unit }}
                     </div>
-
+                    <div class="mb-4">
+                        <p class="font-black text-gray-800 text-xs truncate mb-1">{{ res.resident_name }}</p>
+                        <p class="text-[9px] font-black uppercase tracking-widest {{ 'text-indigo-400' if res.is_billed else 'text-gray-300' }}">
+                            {{ 'Assigned' if res.is_billed else 'Unassigned' }}
+                        </p>
+                    </div>
                     {% if res.is_billed %}
-                    <div class="space-y-2">
-                        <div class="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                            <span class="text-gray-400">Paid: ৳{{ "{:,.0f}".format(res.collected) }}</span>
-                            <span class="{{ 'text-rose-500' if res.balance > 0 else 'text-emerald-500' }}">
-                                {{ '৳' + "{:,.0f}".format(res.balance) if res.balance > 0 else 'Full' }}
-                            </span>
-                        </div>
-                        <div class="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                            <div class="bg-indigo-600 h-full transition-all duration-500" style="width: {{ (res.collected / res.collectable * 100) if res.collectable > 0 else 0 }}%"></div>
-                        </div>
+                    <div class="flex justify-between text-[9px] font-black uppercase mb-1">
+                        <span class="text-gray-400">Due: ৳{{ "{:,.0f}".format(res.balance) }}</span>
+                    </div>
+                    <div class="w-full bg-gray-200/50 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-indigo-600 h-full transition-all" style="width: {{ (res.collected / res.collectable * 100) if res.collectable > 0 else 0 }}%"></div>
                     </div>
                     {% else %}
-                    <div class="flex items-center text-indigo-600 text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                        <i class="fas fa-plus-circle mr-1"></i> Add Fee
+                    <div class="text-indigo-600 text-[9px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+                        <i class="fas fa-plus mr-1"></i> Add Fee
                     </div>
                     {% endif %}
                 </div>
@@ -135,250 +228,20 @@
             </div>
         </div>
     </div>
-
-    <!-- Event Journal (Transactions History) -->
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="px-8 py-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-            <h3 class="font-bold text-gray-800">Financial History</h3>
-            <div class="flex gap-2">
-                <button onclick="openFinanceModal('income')" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-100">
-                    <i class="fas fa-plus-circle mr-1"></i> Collection
-                </button>
-                <button onclick="openFinanceModal('expense')" class="bg-rose-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-colors shadow-lg shadow-rose-100">
-                    <i class="fas fa-minus-circle mr-1"></i> Expense
-                </button>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left">
-                <thead class="bg-gray-50/50 text-[10px] text-gray-400 uppercase font-black tracking-widest">
-                    <tr>
-                        <th class="px-8 py-5">Date</th>
-                        <th class="px-8 py-5">Account</th>
-                        <th class="px-8 py-5">Description</th>
-                        <th class="px-8 py-5 text-right">Inflow / Outflow</th>
-                        <th class="px-8 py-5 text-right no-print">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    {% for entry in event.ledger_entries|sort(attribute='id', reverse=True) %}
-                    <tr class="hover:bg-gray-50/20 transition-colors">
-                        <td class="px-8 py-6 text-sm text-gray-500 font-medium">
-                            {{ entry.parent.date.strftime('%d %b %Y') }}
-                        </td>
-                        <td class="px-8 py-6">
-                            <span class="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-600">
-                                {{ entry.account.name }}
-                            </span>
-                        </td>
-                        <td class="px-8 py-6">
-                            <p class="font-bold text-gray-800">{{ entry.parent.description }}</p>
-                        </td>
-                        <td class="px-8 py-6 text-right">
-                            {% if entry.credit > 0 %}
-                            <span class="font-black text-emerald-600 font-mono">+ ৳ {{ "{:,.2f}".format(entry.credit) }}</span>
-                            {% elif entry.debit > 0 %}
-                            <span class="font-black text-rose-600 font-mono">- ৳ {{ "{:,.2f}".format(entry.debit) }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-8 py-6 text-right no-print">
-                            <div class="flex justify-end space-x-2">
-                                <a href="{{ url_for('accounting.voucher_print', journal_id=entry.journal_id) }}" target="_blank" class="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg transition-all" title="View Voucher PDF">
-                                    <i class="fas fa-file-pdf text-[10px]"></i>
-                                </a>
-                                {% if entry.credit > 0 and entry.account.code == '3995' %}
-                                <a href="{{ url_for('accounting.receipt_print', journal_id=entry.journal_id) }}" target="_blank" class="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg transition-all" title="Download Money Receipt PDF">
-                                    <i class="fas fa-receipt text-[10px]"></i>
-                                </a>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" class="px-8 py-16 text-center text-gray-300 italic">No transactions recorded yet.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-<!-- Single Billing Modal -->
-<div id="singleBillingModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-            <div>
-                <h3 class="text-xl font-black text-gray-800">Assign Event Fee</h3>
-                <p id="singleBillName" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1"></p>
-            </div>
-            <button onclick="toggleModal('singleBillingModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
-        </div>
-        <form action="{{ url_for('events.bulk_bill_residents', id=event.id) }}" method="POST" class="p-8 space-y-6">
-            <input type="hidden" id="singleBillId" name="unit_ids"> <!-- Route takes unit_ids list, we can just pass one value -->
-            
-            <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <i class="fas fa-file-invoice text-3xl"></i>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Fee Amount (BDT)</label>
-                <div class="relative">
-                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
-                    <input type="number" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
-                </div>
-            </div>
-
-            <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                Generate Invoice
-            </button>
-        </form>
-    </div>
 </div>
 
-<!-- Resident Payment Modal -->
-<div id="residentPaymentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-            <div>
-                <h3 class="text-xl font-black text-gray-800">Receive Payment</h3>
-                <p id="resPaymentName" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1"></p>
-            </div>
-            <button onclick="toggleModal('residentPaymentModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
-        </div>
-        <form action="{{ url_for('events.pay_resident_bill', id=event.id) }}" method="POST" class="p-8 space-y-6">
-            <input type="hidden" id="resPaymentId" name="resident_id">
-            
-            <div class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <i class="fas fa-wallet text-3xl"></i>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Payment Amount (BDT)</label>
-                <div class="relative">
-                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
-                    <input type="number" id="resPaymentAmount" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Deposit to Account</label>
-                <select name="account_code" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
-                    {% for acc in liquid_accounts %}
-                    <option value="{{ acc.code }}">{{ acc.name }} ({{ acc.code }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <button type="submit" class="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all">
-                Confirm Payment
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- Billing Modal -->
-<div id="billingModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-            <h3 class="text-xl font-black text-gray-800">Bill Residents for Event</h3>
-            <button onclick="toggleModal('billingModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
-        </div>
-        <form action="{{ url_for('events.bulk_bill_residents', id=event.id) }}" method="POST" class="p-8">
-            <div class="mb-8">
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Amount per Resident (BDT)</label>
-                <div class="relative">
-                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
-                    <input type="number" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
-                </div>
-            </div>
-
-            <div class="flex justify-between items-center mb-4">
-                <h4 class="text-xs font-black text-gray-400 uppercase tracking-widest">Select Residents</h4>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                    <span class="text-[10px] font-black text-indigo-600 uppercase">Select All</span>
-                </label>
-            </div>
-
-            <div class="max-h-60 overflow-y-auto mb-8 grid grid-cols-2 gap-3 custom-scrollbar">
-                {% for unit in units %}
-                {% set is_billed = unit.resident.id in billed_resident_ids %}
-                <label class="flex items-center p-4 {{ 'bg-indigo-50/50 cursor-not-allowed opacity-60' if is_billed else 'bg-gray-50 hover:border-indigo-100 cursor-pointer' }} rounded-2xl border border-transparent transition-all group">
-                    <input type="checkbox" name="unit_ids" value="{{ unit.id }}" {{ 'disabled' if is_billed }} class="resident-checkbox w-5 h-5 rounded-lg border-gray-300 text-indigo-600 focus:ring-indigo-500 mr-4">
-                    <div class="overflow-hidden">
-                        <p class="font-black text-gray-800 text-xs">Unit {{ unit.unit_number }}</p>
-                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden text-ellipsis">{{ unit.resident.name if unit.resident else 'N/A' }}</p>
-                        {% if is_billed %}
-                        <p class="text-[8px] font-black text-indigo-600 uppercase mt-1">Already Billed</p>
-                        {% endif %}
-                    </div>
-                </label>
-                {% endfor %}
-            </div>
-
-            <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                Generate Invoices
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- Finance Modal -->
-<div id="financeModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/20">
-            <h3 id="modalTitle" class="text-xl font-black text-gray-800">Record Transaction</h3>
-            <button onclick="toggleModal('financeModal')" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-xl"></i></button>
-        </div>
-        <form action="{{ url_for('events.record_event_transaction', id=event.id) }}" method="POST" class="p-8 space-y-6">
-            <input type="hidden" id="transType" name="type" value="income">
-            
-            <div id="modalIconContainer" class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <i id="modalIcon" class="fas fa-hand-holding-usd text-3xl"></i>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Amount (BDT)</label>
-                <div class="relative">
-                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-black">৳</span>
-                    <input type="number" name="amount" required step="0.01" class="w-full pl-10 pr-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-gray-800">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2" id="accountLabel">Debit Account</label>
-                <select name="account_code" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
-                    {% for acc in liquid_accounts %}
-                    <option value="{{ acc.code }}">{{ acc.name }} ({{ acc.code }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Description / Purpose</label>
-                <input type="text" name="description" required placeholder="e.g. Ticket Sales, Venue Decor" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
-            </div>
-
-            <button type="submit" id="submitBtn" class="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all">
-                Confirm Income
-            </button>
-        </form>
-    </div>
-</div>
+{% include 'events/_modals_optimized.html' %}
 
 <script>
     function handleResidentClick(btn) {
-        const id = btn.getAttribute('data-id'); // resident_id
+        const id = btn.getAttribute('data-id'); 
         const unitId = btn.getAttribute('data-unit-id');
         const name = btn.getAttribute('data-name');
         const balance = btn.getAttribute('data-balance');
         const billed = btn.getAttribute('data-billed') === 'true';
 
         if (billed) {
-            if (parseFloat(balance) > 0) {
-                openResidentPaymentModal(id, name, balance);
-            }
+            if (parseFloat(balance) > 0) openResidentPaymentModal(id, name, balance);
         } else {
             openSingleBillingModal(unitId, name);
         }
@@ -390,13 +253,6 @@
         toggleModal('singleBillingModal');
     }
 
-    function handleResPayment(btn) {
-        const id = btn.getAttribute('data-id');
-        const name = btn.getAttribute('data-name');
-        const balance = btn.getAttribute('data-balance');
-        openResidentPaymentModal(id, name, balance);
-    }
-
     function openResidentPaymentModal(id, name, balance) {
         document.getElementById('resPaymentId').value = id;
         document.getElementById('resPaymentName').innerText = name;
@@ -405,47 +261,49 @@
     }
 
     function toggleSelectAll(source) {
-        const checkboxes = document.querySelectorAll('.resident-checkbox');
-        for (let i = 0; i < checkboxes.length; i++) {
-            if (!checkboxes[i].disabled) {
-                checkboxes[i].checked = source.checked;
-            }
-        }
+        document.querySelectorAll('.resident-checkbox').forEach(cb => { if (!cb.disabled) cb.checked = source.checked; });
     }
 
     function openFinanceModal(type) {
         const modal = document.getElementById('financeModal');
-        const title = document.getElementById('modalTitle');
         const typeInput = document.getElementById('transType');
         const iconContainer = document.getElementById('modalIconContainer');
         const icon = document.getElementById('modalIcon');
         const submitBtn = document.getElementById('submitBtn');
+        const catSelect = document.getElementById('category_id_select');
 
         typeInput.value = type;
         modal.classList.remove('hidden');
 
+        // Filter categories
+        for (let i = 0; i < catSelect.options.length; i++) {
+            const opt = catSelect.options[i];
+            const optType = opt.getAttribute('data-type');
+            if (opt.value === "" || optType === type) {
+                opt.style.display = "";
+            } else {
+                opt.style.display = "none";
+            }
+        }
+
         if (type === 'income') {
-            title.innerText = 'Record Collection';
-            document.getElementById('accountLabel').innerText = 'Deposit to Account';
+            document.getElementById('modalTitle').innerText = 'Record Incoming Funds';
             iconContainer.className = 'w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6';
             icon.className = 'fas fa-hand-holding-usd text-3xl';
-            submitBtn.className = 'w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all';
-            submitBtn.innerText = 'Confirm Collection';
+            submitBtn.className = 'w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-emerald-100';
+            submitBtn.innerText = 'Record Income';
         } else {
-            title.innerText = 'Record Expense';
-            document.getElementById('accountLabel').innerText = 'Pay from Account';
+            document.getElementById('modalTitle').innerText = 'Record Outgoing Expense';
             iconContainer.className = 'w-20 h-20 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mx-auto mb-6';
             icon.className = 'fas fa-file-invoice-dollar text-3xl';
-            submitBtn.className = 'w-full bg-rose-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all';
-            submitBtn.innerText = 'Confirm Expense';
+            submitBtn.className = 'w-full bg-rose-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-100';
+            submitBtn.innerText = 'Record Expense';
         }
     }
 
     function toggleModal(id) {
         const modal = document.getElementById(id);
-        if (modal) {
-            modal.classList.toggle('hidden');
-        }
+        if (modal) modal.classList.toggle('hidden');
     }
 </script>
 {% endblock %}

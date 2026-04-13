@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title|default("FlatSync Report") }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0.5cm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.5;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: white;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #1e1b4b;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        .company-name {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1e1b4b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+        .report-title {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #475569;
+            margin-top: 2px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: bold;
+            font-size: 8pt;
+            text-transform: uppercase;
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .font-mono { font-family: Courier, monospace; }
+        
+        /* Utility Colors matching FlatSync theme */
+        .text-indigo-600 { color: #4f46e5; }
+        .text-emerald-600 { color: #059669; }
+        .text-rose-600 { color: #e11d48; }
+        .bg-indigo-900 { background-color: #1e1b4b; color: white; }
+        
+        .summary-box {
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+            font-size: 8pt;
+            color: #94a3b8;
+            text-align: center;
+        }
+        
+        /* Layout Grid replacement for PDF */
+        .pdf-grid { width: 100%; display: table; table-layout: fixed; border-spacing: 20px 0; margin-left: -20px; margin-right: -20px; }
+        .pdf-col { display: table-cell; vertical-align: bottom; }
+        .pdf-col-33 { width: 33.33%; }
+        .pdf-col-50 { width: 50%; }
+        
+        .no-print, button, nav, aside { display: none !important; }
+
+        /* Professional Accents */
+        .border-t-auth { border-top: 2px solid #1e1b4b; }
+        .border-t-std { border-top: 1px solid #cbd5e1; }
+        .bg-accent { background-color: #f8fafc; }
+
+        /* Premium PDF Overrides (xhtml2pdf compatible) */
+        .premium-container {
+            border: 2px solid #0f172a;
+            border-radius: 30px; /* Smallest supported reliable radius */
+            padding: 40px;
+            background-color: #ffffff;
+        }
+        .pill-header {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 10px 25px;
+            border-radius: 15px;
+            font-size: 10pt;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .watermark-pdf {
+            position: absolute;
+            top: 40%;
+            left: 20%;
+            font-size: 100pt;
+            color: #f1f5f9; /* Super light gray */
+            transform: rotate(-15deg);
+            z-index: -1;
+        }
+        .amount-box-pdf {
+            border: 2px solid #0f172a;
+            border-radius: 20px;
+            background-color: #f8fafc;
+            padding: 20px;
+            width: 280px;
+        }
+        .dotted-line {
+            border-bottom: 1px dotted #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Content strictly managed by child templates -->
+
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+
+</body>
+</html>

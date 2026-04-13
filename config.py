@@ -6,9 +6,14 @@ from tkinter import filedialog, ttk
 
 def get_app_config():
     if getattr(sys, 'frozen', False):
-        application_path = os.path.dirname(sys.executable)
+        # Use AppData for persistent configuration in frozen state
+        app_data_root = os.environ.get('APPDATA', os.path.expanduser('~'))
+        application_path = os.path.join(app_data_root, 'FlatSync')
     else:
         application_path = os.path.dirname(os.path.abspath(__file__))
+    
+    if not os.path.exists(application_path):
+        os.makedirs(application_path, exist_ok=True)
     
     config_file = os.path.join(application_path, 'config.json')
     config = {}
