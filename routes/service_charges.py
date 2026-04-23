@@ -20,7 +20,11 @@ def dashboard():
         # Accrued Penalty = (penalty_to_apply for overdue unpaid) + (penalty_amount for paid)
         (func.coalesce(func.sum(
             case(
-                (and_(MonthlyBill.status == 'unpaid', date.today() > MonthlyBill.due_date), MonthlyBill.penalty_to_apply),
+                (and_(
+                    MonthlyBill.status == 'unpaid', 
+                    date.today() > MonthlyBill.due_date,
+                    MonthlyBill.penalty_mode == 'auto'
+                ), MonthlyBill.penalty_to_apply),
                 else_=0
             )
         ), 0) + func.coalesce(func.sum(MonthlyBill.penalty_amount), 0)).label('total_penalty'),
