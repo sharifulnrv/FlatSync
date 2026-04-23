@@ -186,10 +186,14 @@ def index():
                 .filter(LedgerEntry.debit > 0)\
                 .join(JournalEntry).order_by(JournalEntry.date.asc()).first()
             
-            unit = customer.units[0] if customer.units else None
+            unit_numbers = [u.unit_number for u in customer.units]
+            unit_display = ", ".join(unit_numbers)
+            if len(unit_numbers) > 3:
+                unit_display = f"{len(unit_numbers)} Units ({', '.join(unit_numbers[:2])}...)"
+            
             overdue_list.append({
                 'id': customer.id,
-                'unit': unit.unit_number if unit else 'N/A',
+                'unit': unit_display,
                 'customer': customer.name,
                 'due_date': oldest_debit.parent.date.strftime('%d %b %Y') if oldest_debit else 'Unknown',
                 'amount': f"{total_balance:,.2f}",

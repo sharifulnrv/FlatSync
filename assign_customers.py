@@ -1,7 +1,5 @@
-import sqlite3
-import os
-
-db_path = r"C:\Litonsir\real_estate.db"
+from app import create_app
+from models import db, Unit, Customer
 
 data = {
     "A1": "Dewan Mohammad Tushar",
@@ -95,46 +93,40 @@ data = {
 }
 
 def assign_customers():
-    if not os.path.exists(db_path):
-        print(f"Error: Database not found at {db_path}")
-        return
+    app = create_app()
+    with app.app_context():
+        customer_count = 0
+        assigned_count = 0
 
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+        # Cache for customer names to IDs during this run
+        customer_cache = {}
 
-    customer_count = 0
-    assigned_count = 0
-
-    # Cache for customer names to IDs
-    customer_cache = {}
-
-    for unit_num, customer_name in data.items():
-        # Get or create customer
-        if customer_name in customer_cache:
-            customer_id = customer_cache[customer_name]
-        else:
-            cursor.execute("SELECT id FROM customer WHERE name = ?", (customer_name,))
-            res = cursor.fetchone()
-            if res:
-                customer_id = res[0]
+        for unit_num, customer_name in data.items():
+            # Get or create customer
+            if customer_name in customer_cache:
+                customer = customer_cache[customer_name]
             else:
-                cursor.execute("INSERT INTO customer (name) VALUES (?)", (customer_name,))
-                customer_id = cursor.lastrowid
-                customer_count += 1
-            customer_cache[customer_name] = customer_id
+                customer = Customer.query.filter_by(name=customer_name).first()
+                if not customer:
+                    customer = Customer(name=customer_name)
+                    db.session.add(customer)
+                    db.session.flush() # To get the id
+                    customer_count += 1
+                customer_cache[customer_name] = customer
 
-        # Link to unit
-        cursor.execute("UPDATE unit SET customer_id = ?, status = 'occupied' WHERE unit_number = ?", (customer_id, unit_num))
-        if cursor.rowcount > 0:
-            assigned_count += 1
-        else:
-            print(f"Warning: Unit {unit_num} not found in database.")
+            # Link to unit
+            unit = Unit.query.filter_by(unit_number=unit_num).first()
+            if unit:
+                unit.customer_id = customer.id
+                unit.status = 'occupied'
+                assigned_count += 1
+            else:
+                print(f"Warning: Unit {unit_num} not found in database.")
 
-    conn.commit()
-    conn.close()
+        db.session.commit()
 
-    print(f"Created {customer_count} new customer records.")
-    print(f"Assigned {assigned_count} units to customers and set status to 'occupied'.")
+        print(f"Created {customer_count} new customer records.")
+        print(f"Assigned {assigned_count} units to customers and set status to 'occupied'.")
 
 if __name__ == "__main__":
     assign_customers()
