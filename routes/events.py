@@ -16,10 +16,11 @@ def add_event():
     name = request.form.get('name')
     date_str = request.form.get('date')
     description = request.form.get('description')
+    per_resident_fee = float(request.form.get('per_resident_fee') or 0.0)
     
     date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.utcnow().date()
     
-    new_event = Event(name=name, date=date, description=description)
+    new_event = Event(name=name, date=date, description=description, per_resident_fee=per_resident_fee)
     db.session.add(new_event)
     db.session.commit()
     flash('Event created successfully', 'success')
@@ -33,6 +34,7 @@ def edit_event(id):
         date_str = request.form.get('date')
         event.description = request.form.get('description')
         event.status = request.form.get('status', 'planned')
+        event.per_resident_fee = float(request.form.get('per_resident_fee') or 0.0)
         
         if date_str:
             event.date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -100,15 +102,21 @@ def event_detail(id):
                 .order_by(JournalEntry.date.desc()).first()
             payment_id = payment_txn[0] if payment_txn else None
             
+            # Balance logic:
+            # If explicit billing exists (res_collectable > 0), use res_collectable as target.
+            # Otherwise, use event.per_resident_fee as target.
+            target_amount = res_collectable if res_collectable > 0 else event.per_resident_fee
+            current_balance = target_amount - res_collected
+            
             attendance_data.append({
                 'unit': unit.unit_number,
                 'unit_id': unit.id,
                 'resident_name': unit.resident.name,
                 'resident_id': unit.resident.id,
-                'is_billed': res_collectable > 0,
-                'collectable': res_collectable,
+                'is_billed': res_collectable > 0 or event.per_resident_fee > 0,
+                'collectable': target_amount,
                 'collected': res_collected,
-                'balance': res_collectable - res_collected,
+                'balance': max(0, current_balance),
                 'payment_id': payment_id
             })
 
@@ -283,7 +291,7 @@ def pay_resident_bill(id):
         db.session.add(cat)
         db.session.flush()
 
-    # Record in isolated Event Finance only
+    # Record in isolated Event Finance (for simple Inflow/Outflow table)
     new_record = EventFinance(
         event_id=id,
         type='income',
@@ -293,6 +301,15 @@ def pay_resident_bill(id):
         date=datetime.utcnow()
     )
     db.session.add(new_record)
+    
+    # NEW: Also record in formal Ledger for due tracking
+    desc = f"Event Payment - {event.name} ({resident.name})"
+    items = [
+        {'account_code': '3110', 'debit': amount, 'credit': 0, 'customer_id': resident.id}, # Debit Cash
+        {'account_code': '3995', 'debit': 0, 'credit': amount, 'customer_id': resident.id}  # Credit Event Receivable
+    ]
+    record_journal_entry(desc, items, reference=f"EVT-PAY-{id}", event_id=id)
+    
     db.session.commit()
     
     flash(f"Payment of ৳{amount:,.2f} recorded for {resident.name}", 'success')

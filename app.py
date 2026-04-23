@@ -210,23 +210,28 @@ if __name__ == '__main__':
     app = create_app()
     api = JSAPI()
     
-    # Start Flask in a background thread
-    server_thread = threading.Thread(target=run_server, args=(app,))
-    server_thread.daemon = True
-    server_thread.start()
-    
-    # Launch Desktop Window with Loading Screen first
-    loading_path = resource_path('templates/loading.html')
-    # Use URI for local file loading in EXE
-    loading_screen = Path(loading_path).as_uri()
-    
-    window = webview.create_window('FlatSync', 
-                                  url=loading_screen,
-                                  js_api=api,
-                                  width=1400, height=900, 
-                                  resizable=True)
-    
-    # Start transition thread
-    threading.Thread(target=wait_for_server, args=(window,), daemon=True).start()
-    
-    webview.start()
+    if app.config.get('WEBVIEW_ENABLED', True):
+        # Start Flask in a background thread
+        server_thread = threading.Thread(target=run_server, args=(app,))
+        server_thread.daemon = True
+        server_thread.start()
+        
+        # Launch Desktop Window with Loading Screen first
+        loading_path = resource_path('templates/loading.html')
+        # Use URI for local file loading in EXE
+        loading_screen = Path(loading_path).as_uri()
+        
+        window = webview.create_window('FlatSync', 
+                                      url=loading_screen,
+                                      js_api=api,
+                                      width=1400, height=900, 
+                                      resizable=True)
+        
+        # Start transition thread
+        threading.Thread(target=wait_for_server, args=(window,), daemon=True).start()
+        
+        webview.start()
+    else:
+        # Standard Browser Mode: Run Flask directly
+        print("WEBVIEW_ENABLED is false. Running in Browser Mode at http://127.0.0.1:5999")
+        app.run(port=5999, debug=True)

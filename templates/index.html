@@ -3,54 +3,54 @@
 {% block title %}Dashboard - PropManage{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-6 mb-8">
     <!-- Summary Cards -->
-    <a href="{{ url_for('main.category_summary_report', type='revenue') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <div class="bg-indigo-50 p-4 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all"><i class="fas fa-wallet text-xl"></i></div>
-        <div>
-            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Total Income</p>
-            <p class="text-lg font-black text-gray-800">৳ {{ stats.total_income }}</p>
+    <a href="{{ url_for('main.category_summary_report', type='revenue') }}" class="bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center sm:space-x-4 border-l-4 border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-indigo-50 p-3 sm:p-4 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all mb-2 sm:mb-0"><i class="fas fa-wallet text-sm sm:text-xl"></i></div>
+        <div class="text-center sm:text-left">
+            <p class="text-[8px] sm:text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Income</p>
+            <p class="text-sm sm:text-lg font-black text-gray-800">৳ {{ stats.total_income }}</p>
         </div>
     </a>
-    <a href="{{ url_for('main.category_summary_report', type='expense') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-rose-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <div class="bg-rose-50 p-4 rounded-xl text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all"><i class="fas fa-receipt text-xl"></i></div>
-        <div>
-            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Total Cost</p>
-            <p class="text-lg font-black text-gray-800">৳ {{ stats.total_cost }}</p>
+    <a href="{{ url_for('main.category_summary_report', type='expense') }}" class="bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center sm:space-x-4 border-l-4 border-rose-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-rose-50 p-3 sm:p-4 rounded-xl text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all mb-2 sm:mb-0"><i class="fas fa-receipt text-sm sm:text-xl"></i></div>
+        <div class="text-center sm:text-left">
+            <p class="text-[8px] sm:text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Cost</p>
+            <p class="text-sm sm:text-lg font-black text-gray-800">৳ {{ stats.total_cost }}</p>
         </div>
     </a>
-    <a href="{{ url_for('main.category_summary_report', type='asset') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <div class="bg-emerald-50 p-4 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all"><i class="fas fa-landmark text-xl"></i></div>
-        <div>
-            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Total Assets</p>
-            <p class="text-lg font-black text-gray-800">৳ {{ stats.total_assets }}</p>
+    <a href="{{ url_for('main.category_summary_report', type='asset') }}" class="bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center sm:space-x-4 border-l-4 border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-emerald-50 p-3 sm:p-4 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all mb-2 sm:mb-0"><i class="fas fa-landmark text-sm sm:text-xl"></i></div>
+        <div class="text-center sm:text-left">
+            <p class="text-[8px] sm:text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Assets</p>
+            <p class="text-sm sm:text-lg font-black text-gray-800">৳ {{ stats.total_assets }}</p>
         </div>
     </a>
-    <a href="{{ url_for('main.balance_breakdown') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-blue-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <div class="bg-blue-50 p-4 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all"><i class="fas fa-university text-xl"></i></div>
-        <div>
-            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Current Balance</p>
-            <p class="text-lg font-black text-gray-800">৳ {{ stats.current_balance }}</p>
+    <a href="{{ url_for('main.balance_breakdown') }}" class="bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center sm:space-x-4 border-l-4 border-blue-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-blue-50 p-3 sm:p-4 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all mb-2 sm:mb-0"><i class="fas fa-university text-sm sm:text-xl"></i></div>
+        <div class="text-center sm:text-left">
+            <p class="text-[8px] sm:text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Balance</p>
+            <p class="text-sm sm:text-lg font-black text-gray-800">৳ {{ stats.current_balance }}</p>
         </div>
     </a>
-    <a href="{{ url_for('reports.due_report') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-rose-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <div class="bg-rose-50 p-4 rounded-xl text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all"><i class="fas fa-exclamation-circle text-xl"></i></div>
-        <div>
-            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Outstanding Due</p>
-            <p class="text-lg font-black text-rose-600">৳ {{ stats.total_due }}</p>
+    <a href="{{ url_for('reports.due_report') }}" class="bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center sm:space-x-4 border-l-4 border-rose-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-rose-50 p-3 sm:p-4 rounded-xl text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all mb-2 sm:mb-0"><i class="fas fa-exclamation-circle text-sm sm:text-xl"></i></div>
+        <div class="text-center sm:text-left">
+            <p class="text-[8px] sm:text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Due</p>
+            <p class="text-sm sm:text-lg font-black text-rose-600">৳ {{ stats.total_due }}</p>
         </div>
     </a>
-    <a href="{{ url_for('units.list_units') }}" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 border-l-4 border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <div class="bg-amber-50 p-4 rounded-xl text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all"><i class="fas fa-house-user text-xl"></i></div>
-        <div>
-            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Occupancy</p>
-            <p class="text-lg font-black text-gray-800">{{ stats.occupied }}/{{ stats.total_units }}</p>
+    <a href="{{ url_for('units.list_units') }}" class="bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center sm:space-x-4 border-l-4 border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
+        <div class="bg-amber-50 p-3 sm:p-4 rounded-xl text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all mb-2 sm:mb-0"><i class="fas fa-house-user text-sm sm:text-xl"></i></div>
+        <div class="text-center sm:text-left">
+            <p class="text-[8px] sm:text-[9px] text-gray-400 font-black uppercase tracking-widest leading-tight">Occupancy</p>
+            <p class="text-sm sm:text-lg font-black text-gray-800">{{ stats.occupied }}/{{ stats.total_units }}</p>
         </div>
     </a>
 </div>
 
 <!-- Detailed Liquidity Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
     <a href="{{ url_for('main.balance_breakdown', type='cash') }}" class="bg-indigo-50/40 p-6 rounded-[2rem] border border-indigo-100 flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all shadow-sm">
         <div class="flex items-center space-x-4">
             <div class="w-12 h-12 bg-white text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all"><i class="fas fa-wallet"></i></div>
@@ -94,17 +94,19 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
     <!-- Chart 1: Income vs Collection -->
-    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <div class="flex justify-between items-center mb-6">
+    <div class="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-gray-100">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-2 sm:space-y-0">
             <h3 class="text-sm font-black text-gray-800 uppercase tracking-widest">Revenue performance</h3>
             <span class="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-widest">Last 6 Months</span>
         </div>
-        <canvas id="incomeCollectionChart"></canvas>
+        <div class="relative h-[300px] sm:h-auto">
+            <canvas id="incomeCollectionChart"></canvas>
+        </div>
     </div>
     <!-- Chart 2: Collection Progress -->
-    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+    <div class="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-gray-100">
         <h3 class="text-sm font-black text-gray-800 uppercase tracking-widest mb-6">Collection Efficiency</h3>
-        <div class="max-w-[280px] mx-auto">
+        <div class="max-w-[200px] sm:max-w-[280px] mx-auto">
             <canvas id="collectionPieChart"></canvas>
         </div>
     </div>
@@ -119,21 +121,21 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left bg-white text-gray-600">
-                <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider font-bold">
+                <thead class="bg-gray-50 text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-bold">
                     <tr>
-                        <th class="px-6 py-4">Unit</th>
-                        <th class="px-6 py-4">Customer</th>
-                        <th class="px-6 py-4 text-center">Debt Risk</th>
-                        <th class="px-6 py-4">Amount</th>
-                        <th class="px-6 py-4">Action</th>
+                        <th class="px-4 sm:px-6 py-4">Unit</th>
+                        <th class="px-4 sm:px-6 py-4">Resident</th>
+                        <th class="hidden sm:table-cell px-6 py-4 text-center">Debt Risk</th>
+                        <th class="px-4 sm:px-6 py-4">Due</th>
+                        <th class="px-4 sm:px-6 py-4">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for item in overdue %}
-                    <tr class="hover:bg-indigo-50/20 transition-colors duration-150">
-                        <td class="px-6 py-4 font-bold text-gray-800">{{ item.unit }}</td>
-                        <td class="px-6 py-4 font-medium">{{ item.customer }}</td>
-                        <td class="px-6 py-4">
+                    <tr class="hover:bg-indigo-50/20 transition-colors duration-150 text-xs sm:text-sm">
+                        <td class="px-4 sm:px-6 py-4 font-bold text-gray-800 whitespace-nowrap">{{ item.unit }}</td>
+                        <td class="px-4 sm:px-6 py-4 font-medium truncate max-w-[100px] sm:max-w-none">{{ item.customer }}</td>
+                        <td class="hidden sm:table-cell px-6 py-4">
                             <div class="flex items-center justify-center space-x-2">
                                 <div class="w-16 bg-gray-100 h-1.5 rounded-full overflow-hidden">
                                     <div class="bg-rose-500 h-full" style="width: {{ item.due_percent }}%"></div>
@@ -141,9 +143,11 @@
                                 <span class="text-[10px] font-black text-rose-600">{{ item.due_percent }}%</span>
                             </div>
                         </td>
-                        <td class="px-6 py-4 font-bold text-gray-800">৳ {{ item.amount }}</td>
-                        <td class="px-6 py-4">
-                            <button class="text-indigo-600 hover:text-indigo-900 transition-colors"><i class="fas fa-bell mr-1"></i> Remind</button>
+                        <td class="px-4 sm:px-6 py-4 font-bold text-gray-800 whitespace-nowrap">৳ {{ item.amount }}</td>
+                        <td class="px-4 sm:px-6 py-4">
+                            <button onclick="sendWhatsAppReminder('{{ item.id }}')" class="text-indigo-600 hover:text-rose-600 transition-colors" title="Send WhatsApp Reminder">
+                                <i class="fas fa-bell"></i>
+                            </button>
                         </td>
                     </tr>
                     {% else %}
@@ -239,5 +243,23 @@
             } 
         }
     });
+
+    function sendWhatsAppReminder(customerId) {
+        if (!confirm('Send WhatsApp reminder to this resident?')) return;
+        
+        fetch(`/api/whatsapp/send/${customerId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.message || 'Failed to send message', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Connection error', 'error');
+            });
+    }
 </script>
 {% endblock %}

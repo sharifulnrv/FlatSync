@@ -31,7 +31,10 @@
         <canvas id="cashChart" class="absolute inset-x-8 inset-y-10"></canvas>
         <div class="absolute top-10 left-10">
             <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Weekly Liquidity Trend</p>
-            <p class="text-2xl font-black text-emerald-600">+ ৳ 450,200 <span class="text-xs text-gray-400 font-bold ml-1">THIS WEEK</span></p>
+            <p class="text-2xl font-black {{ 'text-emerald-600' if weekly_net >= 0 else 'text-rose-600' }}">
+                {{ '+' if weekly_net >= 0 else '' }} ৳ {{ "{:,.2f}".format(weekly_net) }} 
+                <span class="text-xs text-gray-400 font-bold ml-1 uppercase">past 7 days</span>
+            </p>
         </div>
     </div>
 

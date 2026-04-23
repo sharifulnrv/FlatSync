@@ -21,6 +21,7 @@ class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20))
+    whatsapp_number = db.Column(db.String(20))
     address = db.Column(db.Text)
     units = db.relationship('Unit', backref='resident', lazy=True)
 
@@ -75,6 +76,7 @@ class Event(db.Model):
     date = db.Column(db.Date)
     description = db.Column(db.Text)
     status = db.Column(db.String(20), default='planned') # planned, active, completed
+    per_resident_fee = db.Column(db.Float, default=0.0)
     
     # Relationships for isolated finance
     finance_records = db.relationship('EventFinance', backref='event', lazy=True, cascade="all, delete-orphan")
@@ -169,6 +171,7 @@ class MonthlyBill(db.Model):
     due_date = db.Column(db.Date)
     paid_date = db.Column(db.Date)
     paid_amount = db.Column(db.Float, default=0.0)
+    penalty_mode = db.Column(db.String(20), default='auto') # 'auto' or 'manual'
     
     @property
     def current_penalty(self):
@@ -181,6 +184,9 @@ class MonthlyBill(db.Model):
         import calendar
         
         if self.status == 'paid' and self.paid_date and on_date >= self.paid_date:
+            return self.penalty_amount
+
+        if self.penalty_mode == 'manual':
             return self.penalty_amount
             
         if on_date <= self.due_date:

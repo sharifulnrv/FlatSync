@@ -13,13 +13,32 @@
                         {{ customer.name[0]|upper }}
                     </div>
                     <div>
-                        <h2 class="text-4xl font-black mb-2">{{ customer.name }}</h2>
-                        <p class="text-indigo-200 flex items-center">
-                            <i class="fas fa-phone-alt mr-3"></i> {{ customer.phone }}
-                        </p>
-                        <p class="text-indigo-200 flex items-center mt-2">
-                            <i class="fas fa-map-marker-alt mr-3"></i> {{ customer.address }}
-                        </p>
+                        <div class="flex items-center space-x-4 mb-2">
+                            <h2 class="text-4xl font-black">{{ customer.name }}</h2>
+                            <button data-id="{{ customer.id }}" 
+                                    data-name="{{ customer.name }}" 
+                                    data-phone="{{ customer.phone }}" 
+                                    data-whatsapp="{{ customer.whatsapp_number or '' }}" 
+                                    data-address="{{ customer.address or '' }}"
+                                    onclick="openEditCustomer(this)" 
+                                    class="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-all text-sm" 
+                                    title="Edit Profile">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-4 text-indigo-100 text-sm">
+                            <p class="flex items-center">
+                                <i class="fas fa-phone-alt mr-2 opacity-60"></i> {{ customer.phone }}
+                            </p>
+                            {% if customer.whatsapp_number %}
+                            <p class="flex items-center">
+                                <i class="fab fa-whatsapp mr-2 text-emerald-400"></i> {{ customer.whatsapp_number }}
+                            </p>
+                            {% endif %}
+                            <p class="flex items-center">
+                                <i class="fas fa-map-marker-alt mr-2 opacity-60"></i> {{ customer.address }}
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <div class="text-right">
@@ -36,9 +55,33 @@
             <div class="flex justify-between items-center mb-8">
                 <h3 class="text-xl font-bold text-gray-800">Transaction History</h3>
                 <div class="flex space-x-2">
-                    <button class="bg-gray-50 border px-4 py-2 rounded-xl text-sm font-bold text-gray-600">Export Ledger</button>
-                    <a href="{{ url_for('accounting.record_transaction') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold">Record Transaction</a>
+                    <a href="{{ url_for('units.export_customer_ledger', id=customer.id, from_date=from_date, to_date=to_date) }}" class="bg-gray-50 border px-4 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-file-excel mr-2"></i> Export Ledger
+                    </a>
+                    <a href="{{ url_for('accounting.record_transaction') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-lg">Record Transaction</a>
                 </div>
+            </div>
+
+            <!-- Ledger Filter -->
+            <div class="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 flex flex-wrap items-center justify-between gap-4 mb-8">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-filter text-indigo-400"></i>
+                    <h3 class="font-black text-gray-400 uppercase tracking-widest text-[10px]">History Filter</h3>
+                </div>
+                <form action="{{ url_for('units.customer_profile', id=customer.id) }}" method="GET" class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">From</span>
+                        <input type="date" name="from_date" value="{{ from_date }}" class="px-4 py-2 bg-white border-0 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">To</span>
+                        <input type="date" name="to_date" value="{{ to_date }}" class="px-4 py-2 bg-white border-0 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all">Apply Filter</button>
+                    {% if request.args.get('from_date') or request.args.get('to_date') %}
+                    <a href="{{ url_for('units.customer_profile', id=customer.id) }}" class="text-gray-400 hover:text-rose-600 ml-2" title="Clear Filters"><i class="fas fa-times-circle"></i></a>
+                    {% endif %}
+                </form>
             </div>
 
             <div class="overflow-x-auto">
@@ -53,6 +96,22 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50 uppercase tracking-tighter">
+                        <!-- Opening Balance Row -->
+                        <tr class="bg-gray-50/30">
+                            <td class="px-6 py-6 text-sm text-gray-400 font-bold italic">{{ from_date }}</td>
+                            <td class="px-6 py-6">
+                                <p class="font-black text-gray-400 italic">OPENING BALANCE / ARREARS</p>
+                            </td>
+                            <td class="px-6 py-6 text-right font-black text-gray-400">
+                                {{ "৳ {:,.2f}".format(opening_balance) if opening_balance > 0 else '-' }}
+                            </td>
+                            <td class="px-6 py-6 text-right font-black text-gray-400">
+                                {{ "৳ {:,.2f}".format(-opening_balance) if opening_balance < 0 else '-' }}
+                            </td>
+                            <td class="px-6 py-6 text-right font-black text-indigo-400">
+                                BG FW
+                            </td>
+                        </tr>
                         {% for entry in history %}
                         <tr onclick="window.location='{{ url_for('accounting.transaction_details', journal_id=entry.parent.id) }}'" class="hover:bg-indigo-50/20 transition-all cursor-pointer group">
                             <td class="px-6 py-6 text-sm text-gray-500">{{ entry.parent.date.strftime('%d %b, %Y') }}</td>
@@ -94,4 +153,61 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Resident Modal -->
+<div id="editCustomerModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl relative overflow-hidden text-left">
+        <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+            <h3 class="text-xl font-bold text-gray-800">Edit Resident Details</h3>
+            <button onclick="toggleModal('editCustomerModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="editCustomerForm" method="POST" class="p-8 space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Full Name</label>
+                    <input type="text" name="name" id="edit_cust_name" required class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Phone Number</label>
+                    <input type="text" name="phone" id="edit_cust_phone" required class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">WhatsApp Number</label>
+                    <input type="text" name="whatsapp_number" id="edit_cust_whatsapp" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Mailing Address</label>
+                    <textarea name="address" id="edit_cust_address" rows="3" class="w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" onclick="toggleModal('editCustomerModal')" class="px-8 py-4 text-xs font-black uppercase text-gray-400 hover:text-gray-600">Cancel</button>
+                <button type="submit" class="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg">Update Profile</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleModal(id) {
+        const modal = document.getElementById(id);
+        modal.classList.toggle('hidden');
+    }
+
+    function openEditCustomer(btn) {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        const phone = btn.getAttribute('data-phone');
+        const whatsapp = btn.getAttribute('data-whatsapp');
+        const address = btn.getAttribute('data-address');
+        
+        const form = document.getElementById('editCustomerForm');
+        form.action = `/customers/edit/${id}`;
+        document.getElementById('edit_cust_name').value = name;
+        document.getElementById('edit_cust_phone').value = phone;
+        document.getElementById('edit_cust_whatsapp').value = whatsapp;
+        document.getElementById('edit_cust_address').value = address;
+        toggleModal('editCustomerModal');
+    }
+</script>
 {% endblock %}

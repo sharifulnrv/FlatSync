@@ -3,14 +3,14 @@
 {% block header %}Billing Cycle: {{ month_name }} {{ year }}{% endblock %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-center">
+<div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
     <a href="{{ url_for('service_charges.dashboard') }}" class="text-gray-400 hover:text-gray-600 font-bold flex items-center transition-colors">
         <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
     </a>
-    <div class="flex space-x-4">
-        <button class="bg-white border text-xs px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-gray-50 shadow-sm"><i class="fas fa-print mr-2"></i> Print Report</button>
-        <button class="bg-emerald-600 text-white text-xs px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-700 shadow-sm flex items-center">
-            <i class="fas fa-file-excel mr-2"></i> Export Excel
+    <div class="flex space-x-2 sm:space-x-4 w-full sm:w-auto">
+        <button class="flex-1 sm:flex-none bg-white border text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-gray-50 shadow-sm"><i class="fas fa-print mr-1 sm:mr-2"></i> Print</button>
+        <button class="flex-1 sm:flex-none bg-emerald-600 text-white text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-700 shadow-sm flex items-center justify-center">
+            <i class="fas fa-file-excel mr-1 sm:mr-2"></i> Excel
         </button>
     </div>
 </div>
@@ -20,63 +20,73 @@
         <table class="w-full text-left bg-white">
             <thead class="bg-gray-50 text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] border-b border-gray-100">
                 <tr>
-                    <th class="px-8 py-6">Unit / Resident</th>
-                    <th class="px-8 py-6">Total Bill</th>
-                    <th class="px-8 py-6">Paid / Balance</th>
-                    <th class="px-8 py-6">Debt %</th>
-                    <th class="px-8 py-6">Status</th>
-                    <th class="px-8 py-6 text-right">Actions</th>
+                    <th class="px-4 sm:px-8 py-6">Unit / Resident</th>
+                    <th class="px-4 sm:px-8 py-6">Total Bill</th>
+                    <th class="px-4 sm:px-8 py-6">Paid / Balance</th>
+                    <th class="hidden md:table-cell px-8 py-6">Debt %</th>
+                    <th class="px-4 sm:px-8 py-6">Status</th>
+                    <th class="px-4 sm:px-8 py-6 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
                 {% for bill in bills %}
-                <tr class="hover:bg-gray-50/30 transition-all group">
-                    <td class="px-8 py-6">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xs">
+                <tr class="hover:bg-gray-50/30 transition-all group text-sm sm:text-base">
+                    <td class="px-4 sm:px-8 py-6">
+                        <div class="flex items-center space-x-3 sm:space-x-4">
+                            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xs shrink-0">
                                 {{ bill.unit.unit_number }}
                             </div>
-                            <div>
-                                <p class="font-black text-gray-800">{{ bill.unit.resident.name if bill.unit.resident else 'VACANT' }}</p>
-                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Due: {{ bill.due_date.strftime('%d %b') }}</p>
+                            <div class="min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <p class="font-black text-gray-800 truncate">{{ bill.unit.resident.name if bill.unit.resident else 'VACANT' }}</p>
+                                    {% if bill.penalty_mode == 'manual' and bill.status != 'paid' %}
+                                    <button onclick="openManualPenaltyModal({{ bill.id }}, '{{ bill.unit.resident.name }}', '{{ bill.unit.unit_number }}')" class="text-indigo-400 hover:text-indigo-600 transition-colors shrink-0" title="Assign Manual Penalty">
+                                        <i class="fas fa-plus-circle text-sm"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <p class="text-[9px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-widest">Due: {{ bill.due_date.strftime('%d %b') }}</p>
                             </div>
                         </div>
                     </td>
-                    <td class="px-8 py-6">
-                        <p class="font-black text-gray-800">৳ {{ "{:,.2f}".format(bill.amount + bill.penalty_amount) }}</p>
-                        {% if bill.status != 'paid' and bill.due_date < date.today() %}
-                        <p class="text-[9px] text-rose-500 font-black uppercase tracking-widest">+ ৳{{ "{:,.2f}".format(bill.penalty_to_apply) }} Penalty</p>
+                    <td class="px-4 sm:px-8 py-6">
+                        <p class="font-black text-gray-800 whitespace-nowrap">৳ {{ "{:,.2f}".format(bill.amount + bill.current_penalty) }}</p>
+                        {% if bill.status != 'paid' and bill.due_date < date.today() and bill.penalty_mode == 'auto' %}
+                        <p class="text-[8px] sm:text-[9px] text-rose-500 font-black uppercase tracking-widest">+ ৳{{ "{:,.2f}".format(bill.current_penalty) }} Auto</p>
+                        {% endif %}
+                        {% if bill.penalty_mode == 'manual' and bill.penalty_amount > 0 %}
+                        <p class="text-[8px] sm:text-[9px] text-indigo-500 font-black uppercase tracking-widest">+ ৳{{ "{:,.2f}".format(bill.penalty_amount) }} Manual</p>
                         {% endif %}
                     </td>
-                    <td class="px-8 py-6">
-                        <p class="text-xs font-bold text-emerald-600">P: ৳ {{ "{:,.2f}".format(bill.paid_amount) }}</p>
-                        <p class="text-xs font-black text-rose-600">B: ৳ {{ "{:,.2f}".format(bill.balance_due) }}</p>
+                    <td class="px-4 sm:px-8 py-6">
+                        <p class="text-[10px] sm:text-xs font-bold text-emerald-600 whitespace-nowrap">P: ৳ {{ "{:,.2f}".format(bill.paid_amount) }}</p>
+                        <p class="text-[10px] sm:text-xs font-black text-rose-600 whitespace-nowrap">B: ৳ {{ "{:,.2f}".format(bill.balance_due) }}</p>
                     </td>
-                    <td class="px-8 py-6">
+                    <td class="hidden md:table-cell px-8 py-6">
                         <div class="w-24 bg-gray-100 rounded-full h-1.5 mb-1">
                             <div class="bg-rose-500 h-1.5 rounded-full" style="width: {{ '%.1f'|format(bill.due_percentage) }}%"></div>
                         </div>
-                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest">{{ "%.1f"|format(bill.due_percentage) }}% Outstanding</p>
+                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest">{{ "%.1f"|format(bill.due_percentage) }}%</p>
                     </td>
-                    <td class="px-8 py-6">
+                    <td class="px-4 sm:px-8 py-6">
                         {% if bill.status == 'paid' %}
-                        <span class="px-4 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center w-fit">
-                            <i class="fas fa-check-circle mr-1.5"></i> Paid
+                        <span class="px-3 sm:px-4 py-1 sm:py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center w-fit">
+                            <i class="fas fa-check-circle mr-1 sm:mr-1.5"></i> Paid
                         </span>
                         {% elif bill.status == 'partial' %}
-                        <span class="px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center w-fit">
-                            <i class="fas fa-pie-chart mr-1.5"></i> Partial
+                        <span class="px-3 sm:px-4 py-1 sm:py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center w-fit">
+                            <i class="fas fa-pie-chart mr-1 sm:mr-1.5"></i> Partial
                         </span>
                         {% else %}
-                        <span class="px-4 py-1.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center w-fit">
-                            <i class="fas fa-clock mr-1.5"></i> Pending
+                        <span class="px-3 sm:px-4 py-1 sm:py-1.5 bg-amber-100 text-amber-700 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center w-fit">
+                            <i class="fas fa-clock mr-1 sm:mr-1.5"></i> Pending
                         </span>
                         {% endif %}
                     </td>
-                    <td class="px-8 py-6 text-right">
-                        <div class="flex items-center justify-end space-x-2">
+                    <td class="px-4 sm:px-8 py-6 text-right">
+                        <div class="flex items-center justify-end space-x-1 sm:space-x-2">
                             {% if bill.status != 'paid' %}
-                            <button onclick="openPaymentModal({{ bill.id }}, '{{ bill.unit.unit_number }}', {{ bill.amount }}, {{ bill.penalty_to_apply }}, '{{ bill.due_date.strftime('%Y-%m-%d') }}', {{ bill.balance_due }})" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+                            <button onclick="openPaymentModal({{ bill.id }}, '{{ bill.unit.unit_number }}', {{ bill.amount }}, {{ bill.penalty_to_apply }}, '{{ bill.due_date.strftime('%Y-%m-%d') }}', {{ bill.balance_due }}, '{{ bill.penalty_mode }}')" class="bg-indigo-600 text-white px-3 sm:px-4 py-2 rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
                                 Pay
                             </button>
                             {% endif %}
@@ -88,12 +98,12 @@
                                     {% endif %}
                                 {% endfor %}
                                 {% if ns.payment_txn %}
-                                <a href="{{ url_for('accounting.receipt_print', journal_id=ns.payment_txn.id) }}" target="_blank" class="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all" title="Download Money Receipt PDF">
+                                <a href="{{ url_for('accounting.receipt_print', journal_id=ns.payment_txn.id) }}" target="_blank" class="p-1.5 sm:p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all" title="Receipt">
                                     <i class="fas fa-file-pdf"></i>
                                 </a>
                                 {% endif %}
                             {% endif %}
-                            <a href="{{ url_for('service_charges.bill_details', bill_id=bill.id) }}" class="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
+                            <a href="{{ url_for('service_charges.bill_details', bill_id=bill.id) }}" class="p-1.5 sm:p-2 text-gray-400 hover:text-indigo-600 transition-colors">
                                 <i class="fas fa-eye"></i>
                             </a>
                         </div>
@@ -106,8 +116,8 @@
 </div>
 
 <!-- Payment Modal -->
-<div id="paymentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 relative animate-in fade-in zoom-in duration-300">
+<div id="paymentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+    <div class="bg-white w-full max-w-md max-h-[95vh] overflow-y-auto rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative animate-in fade-in zoom-in duration-300">
         <button onclick="closePaymentModal()" class="absolute right-6 top-6 text-gray-400 hover:text-gray-600 transition-colors">
             <i class="fas fa-times text-xl"></i>
         </button>
@@ -136,20 +146,67 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Amount to Pay</label>
-                <div class="relative">
-                    <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-400">৳</span>
-                    <input type="number" id="amount_paid_input" name="amount_paid" step="0.01" required class="w-full bg-gray-50 border-none rounded-2xl p-4 pl-10 focus:ring-2 focus:ring-indigo-500 font-black text-lg text-gray-800 transition-all">
+            <div class="pt-2">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Payment Details</p>
+                <!-- Accounting Summary Card -->
+                <div class="flex justify-between items-end bg-slate-50 p-4 sm:p-6 rounded-3xl border border-slate-100 mb-6">
+                    <div>
+                        <p class="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Payable</p>
+                        <p id="balanceHint" class="text-xl sm:text-3xl font-black text-slate-900 font-mono">৳ 0.00</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                        <p id="remainingDueHint" class="text-xs sm:text-sm font-black uppercase tracking-widest text-emerald-600 truncate">Full</p>
+                    </div>
                 </div>
-                <p id="balanceHint" class="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-widest"></p>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-2">Actual Cash/Bank Amount Paid <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute left-5 top-1/2 -translate-y-1/2 font-black text-slate-400 sm:text-xl">৳</span>
+                        <input type="number" id="amount_paid_input" name="amount_paid" step="0.01" required oninput="handlePaidInput()" class="w-full bg-white border-2 border-slate-200 rounded-[1.5rem] p-4 sm:p-5 pl-10 sm:pl-12 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-black text-2xl sm:text-3xl text-slate-900 transition-all shadow-sm" placeholder="0.00">
+                    </div>
+                    <p class="text-[9px] text-slate-400 mt-3 font-bold uppercase tracking-widest px-1">
+                        <i class="fas fa-info-circle mr-1"></i> Recorded as DR Liquid Assets / CR Accounts Receivable.
+                    </p>
+                </div>
             </div>
             
-            <div id="penaltyWarning" class="hidden p-4 bg-rose-50 rounded-2xl border border-rose-100 flex items-start space-x-3">
-                <i class="fas fa-exclamation-triangle text-rose-500 mt-0.5"></i>
+            <!-- Penalty Configuration -->
+            <div class="space-y-4">
                 <div>
-                    <p class="text-[10px] text-rose-600 font-black uppercase tracking-widest leading-none mb-1">Overdue Penalty</p>
-                    <p id="penaltyText" class="text-[10px] text-rose-700 font-bold leading-tight"></p>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Penalty Calculation</label>
+                    <div class="flex p-1 bg-gray-50 rounded-2xl">
+                        <label class="flex-1">
+                            <input type="radio" name="penalty_mode" value="auto" checked class="hidden peer" onchange="togglePenaltyMode()">
+                            <div class="cursor-pointer text-center py-2 text-[10px] font-black uppercase tracking-widest rounded-xl peer-checked:bg-white peer-checked:text-indigo-600 peer-checked:shadow-sm text-gray-400 transition-all">
+                                Automatic
+                            </div>
+                        </label>
+                        <label class="flex-1">
+                            <input type="radio" name="penalty_mode" value="manual" class="hidden peer" onchange="togglePenaltyMode()">
+                            <div class="cursor-pointer text-center py-2 text-[10px] font-black uppercase tracking-widest rounded-xl peer-checked:bg-white peer-checked:text-indigo-600 peer-checked:shadow-sm text-gray-400 transition-all">
+                                Manual / Custom
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="manualPenaltyContainer" class="hidden">
+                    <label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Manual Penalty Amount</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-400">৳</span>
+                        <input type="number" id="manual_penalty_input" name="manual_penalty_amount" step="0.01" value="0" oninput="updateTotalPayAmount()" class="w-full bg-indigo-50/50 border-2 border-indigo-100 rounded-2xl p-4 pl-10 focus:ring-2 focus:ring-indigo-500 font-black text-indigo-700 transition-all">
+                    </div>
+                    <p class="text-[9px] text-indigo-400 mt-2 font-bold uppercase tracking-widest">Enter 0 to waive all automatic penalties</p>
+                </div>
+
+                <div id="penaltyWarning" class="hidden p-4 bg-rose-50 rounded-2xl border border-rose-100 flex items-start space-x-3">
+                    <i class="fas fa-exclamation-triangle text-rose-500 mt-0.5"></i>
+                    <div>
+                        <p class="text-[10px] text-rose-600 font-black uppercase tracking-widest leading-none mb-1">Overdue Penalty</p>
+                        <p id="penaltyText" class="text-[10px] text-rose-700 font-bold leading-tight"></p>
+                    </div>
                 </div>
             </div>
 
@@ -176,38 +233,154 @@
     let current_base_balance = 0;
     let current_penalty_rate = 0;
     let current_deadline = '';
+    let userHasEditedPaidAmount = false;
 
-    function openPaymentModal(id, unit, amount, penalty_rate, deadline, balance_due) {
+    function handlePaidInput() {
+        userHasEditedPaidAmount = true;
+        updateTotalPayAmount();
+    }
+
+    function openPaymentModal(id, unit, amount, penalty_rate, deadline, balance_due, penalty_mode) {
         current_base_balance = balance_due;
         current_penalty_rate = penalty_rate;
         current_deadline = deadline;
+        userHasEditedPaidAmount = false;
 
         document.getElementById('paymentModal').classList.remove('hidden');
         document.getElementById('modalUnit').innerText = 'Unit ' + unit;
         document.getElementById('amount_paid_input').value = balance_due;
-        document.getElementById('balanceHint').innerText = 'Total Outstanding: ৳' + balance_due.toLocaleString();
+        document.getElementById('balanceHint').innerText = 'Total Bill: ৳' + balance_due.toLocaleString();
+        document.getElementById('remainingDueHint').innerText = 'Full Payment';
+        document.getElementById('remainingDueHint').className = 'text-[9px] font-black uppercase tracking-widest text-emerald-500';
         document.getElementById('paymentForm').action = "/service-charges/pay/" + id;
         
-        updatePenaltyWarning();
+        // Set saved penalty mode
+        if (penalty_mode) {
+            const radio = document.querySelector(`input[name="penalty_mode"][value="${penalty_mode}"]`);
+            if (radio) radio.checked = true;
+        }
+        
+        togglePenaltyMode();
+    }
+
+    function togglePenaltyMode() {
+        const mode = document.querySelector('input[name="penalty_mode"]:checked').value;
+        const container = document.getElementById('manualPenaltyContainer');
+        const autoWarning = document.getElementById('penaltyWarning');
+        
+        if (mode === 'manual') {
+            container.classList.remove('hidden');
+            autoWarning.classList.add('hidden'); // Hide auto warning in manual mode
+        } else {
+            container.classList.add('hidden');
+            updatePenaltyWarning(); // Re-show auto warning if applicable
+        }
+        updateTotalPayAmount();
     }
 
     function updatePenaltyWarning() {
+        const mode = document.querySelector('input[name="penalty_mode"]:checked').value;
+        if (mode === 'manual') return; // Don't show auto warning in manual mode
+
         const pDate = document.getElementById('payment_date_input').value;
         const warning = document.getElementById('penaltyWarning');
-        const input = document.getElementById('amount_paid_input');
         
         if (pDate > current_deadline) {
             warning.classList.remove('hidden');
-            document.getElementById('penaltyText').innerText = 'Payment is past the ৳' + current_deadline + ' deadline. ৳' + current_penalty_rate + ' penalty applies.';
-            // If penalty not already in balance, add it to input value
-            // (Note: route handles actual penalty logic, JS is for UI hint)
+            document.getElementById('penaltyText').innerText = 'System detects payment is past the ' + current_deadline + ' deadline. Automatic penalty will be added.';
         } else {
             warning.classList.add('hidden');
         }
     }
 
+    function updateTotalPayAmount() {
+        const mode = document.querySelector('input[name="penalty_mode"]:checked').value;
+        const manualPenaltyInput = document.getElementById('manual_penalty_input');
+        const amountPaidInput = document.getElementById('amount_paid_input');
+        const balanceHint = document.getElementById('balanceHint');
+        const remainingDueHint = document.getElementById('remainingDueHint');
+        
+        let manualPenalty = 0;
+        if (mode === 'manual') {
+            manualPenalty = parseFloat(manualPenaltyInput.value) || 0;
+        }
+
+        const totalBill = current_base_balance + manualPenalty;
+        
+        // Auto-sync the payment field if user hasn't touched it
+        if (!userHasEditedPaidAmount) {
+            amountPaidInput.value = totalBill.toFixed(2);
+        }
+
+        const paidAmount = parseFloat(amountPaidInput.value) || 0;
+        const remaining = totalBill - paidAmount;
+        
+        // Update labels
+        balanceHint.innerText = '৳ ' + totalBill.toLocaleString(undefined, {minimumFractionDigits: 2});
+
+        if (remaining <= 0.01 && remaining >= -0.01) {
+            remainingDueHint.innerText = 'Full Payment';
+            remainingDueHint.className = 'text-[10px] font-black uppercase tracking-widest text-emerald-500';
+        } else if (remaining > 0) {
+            remainingDueHint.innerText = 'Remaining Due: ৳' + remaining.toLocaleString(undefined, {minimumFractionDigits: 2});
+            remainingDueHint.className = 'text-[10px] font-black uppercase tracking-widest text-orange-500';
+        } else {
+            remainingDueHint.innerText = 'Overpaid: ৳' + Math.abs(remaining).toLocaleString(undefined, {minimumFractionDigits: 2});
+            remainingDueHint.className = 'text-[10px] font-black uppercase tracking-widest text-indigo-500';
+        }
+    }
+
     function closePaymentModal() {
         document.getElementById('paymentModal').classList.add('hidden');
+        // Reset to auto mode for next modal open
+        document.querySelector('input[name="penalty_mode"][value="auto"]').checked = true;
+        togglePenaltyMode();
+    }
+
+    function openManualPenaltyModal(billId, residentName, unitNumber) {
+        document.getElementById('manualPenaltyModal').classList.remove('hidden');
+        document.getElementById('manualPenaltyUnit').innerText = 'Unit ' + unitNumber;
+        document.getElementById('manualPenaltyResident').innerText = residentName;
+        document.getElementById('manualPenaltyForm').action = "/service-charges/apply-manual-penalty/" + billId;
+    }
+
+    function closeManualPenaltyModal() {
+        document.getElementById('manualPenaltyModal').classList.add('hidden');
     }
 </script>
+
+<!-- Manual Penalty Assignment Modal -->
+<div id="manualPenaltyModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 relative animate-in fade-in zoom-in duration-300">
+        <button onclick="closeManualPenaltyModal()" class="absolute right-6 top-6 text-gray-400 hover:text-gray-600 transition-colors">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+        
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-exclamation-circle text-2xl"></i>
+            </div>
+            <h3 class="text-2xl font-black text-gray-800">Assign Penalty</h3>
+            <p id="manualPenaltyUnit" class="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1"></p>
+            <p id="manualPenaltyResident" class="text-xs text-rose-500 font-black uppercase tracking-widest"></p>
+        </div>
+
+        <form id="manualPenaltyForm" method="POST" class="space-y-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase mb-2">Penalty Amount</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-400">৳</span>
+                    <input type="number" name="penalty_amount" step="0.01" required placeholder="0.00" class="w-full bg-rose-50/30 border-2 border-rose-100 rounded-2xl p-4 pl-10 focus:ring-2 focus:ring-rose-500 font-black text-lg text-rose-700 transition-all">
+                </div>
+                <p class="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-widest">
+                    <i class="fas fa-info-circle mr-1"></i> This will Debit 3930 (AR) and Credit 4110 (Penalty).
+                </p>
+            </div>
+
+            <button type="submit" class="w-full bg-rose-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-rose-700 shadow-2xl shadow-rose-100 transition-all">
+                Apply Penalty
+            </button>
+        </form>
+    </div>
+</div>
 {% endblock %}

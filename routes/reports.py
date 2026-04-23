@@ -6,7 +6,7 @@ from sqlalchemy import func
 import openpyxl
 from openpyxl.utils import get_column_letter
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta
 from openpyxl.styles import Font, Alignment, PatternFill, Side, Border
 
 # Centralized Excel Styles for Consistency
@@ -33,6 +33,10 @@ def get_dates():
     
     f_date = datetime.strptime(f_str, '%Y-%m-%d')
     t_date = datetime.strptime(t_str, '%Y-%m-%d')
+    
+    # Make t_date inclusive of the entire day
+    from datetime import time
+    t_date = datetime.combine(t_date.date(), time(23, 59, 59))
     
     return f_date, t_date, f_str, t_str
 
@@ -174,8 +178,19 @@ def daily_cash_report():
         
     daily_stats = q_stats.group_by(func.date(JournalEntry.date)).order_by(func.date(JournalEntry.date).desc()).all()
     transactions = q_details.order_by(JournalEntry.date.desc()).all()
+
+    # Calculate actual weekly trend (last 7 days net change)
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    q_weekly = db.session.query(
+        func.sum(LedgerEntry.debit - LedgerEntry.credit)
+    ).join(Account).join(JournalEntry).filter(
+        Account.code.like('31%'),
+        LedgerEntry.event_id == None,
+        JournalEntry.date >= seven_days_ago
+    ).scalar() or 0
+    weekly_net = float(q_weekly)
     
-    return render_template('daily_cash_report.html', stats=daily_stats, transactions=transactions, from_date=from_date_str, to_date=to_date_str)
+    return render_template('daily_cash_report.html', stats=daily_stats, transactions=transactions, from_date=from_date_str, to_date=to_date_str, weekly_net=weekly_net)
 
 @reports_bp.route('/reports/ledger')
 def ledger_report():

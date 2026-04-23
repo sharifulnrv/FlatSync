@@ -5,28 +5,28 @@
 {% block content %}
 <div class="space-y-12">
     <!-- Stats Row -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Total Asset Value</p>
-            <p class="text-3xl font-black text-gray-900">৳ {{ "{:,.2f}".format(assets|sum(attribute='purchase_cost')) }}</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div class="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-gray-100">
+            <p class="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Total Value</p>
+            <p class="text-xl sm:text-3xl font-black text-gray-900">৳ {{ "{:,.0f}".format(assets|sum(attribute='purchase_cost')) }}</p>
         </div>
-        <div class="bg-rose-50 p-8 rounded-3xl shadow-sm border border-rose-100">
-            <p class="text-xs font-black text-rose-600 uppercase tracking-widest mb-1">Maintenance Expenses</p>
-            <p class="text-3xl font-black text-rose-900">৳ {{ "{:,.2f}".format(assets|map(attribute='total_maintenance')|sum) }}</p>
+        <div class="bg-rose-50 p-5 sm:p-8 rounded-3xl shadow-sm border border-rose-100">
+            <p class="text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest mb-1">Maintenance</p>
+            <p class="text-xl sm:text-3xl font-black text-rose-900">৳ {{ "{:,.0f}".format(assets|map(attribute='total_maintenance')|sum) }}</p>
         </div>
-        <div class="bg-emerald-50 p-8 rounded-3xl shadow-sm border border-emerald-100">
-            <p class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Net Asset Value</p>
-            <p class="text-3xl font-black text-emerald-900">৳ {{ "{:,.2f}".format(assets|map(attribute='current_value')|sum) }}</p>
+        <div class="bg-emerald-50 p-5 sm:p-8 rounded-3xl shadow-sm border border-emerald-100">
+            <p class="text-[10px] sm:text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Net Value</p>
+            <p class="text-xl sm:text-3xl font-black text-emerald-900">৳ {{ "{:,.0f}".format(assets|map(attribute='current_value')|sum) }}</p>
         </div>
     </div>
 
     <!-- Actions -->
-    <div class="flex flex-wrap gap-4">
-        <button onclick="toggleModal('addAssetModal')" class="bg-gray-900 text-white px-6 py-3 rounded-2xl font-bold flex items-center hover:bg-gray-800 shadow-lg">
-            <i class="fas fa-plus mr-2"></i> Register New Asset
+    <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <button onclick="toggleModal('addAssetModal')" class="flex-1 bg-gray-900 text-white px-6 py-4 sm:py-3 rounded-2xl font-bold flex items-center justify-center hover:bg-gray-800 shadow-lg">
+            <i class="fas fa-plus mr-2"></i> Register Asset
         </button>
-        <button onclick="toggleModal('addCategoryModal')" class="bg-white border-2 border-gray-100 text-gray-600 px-6 py-3 rounded-2xl font-bold flex items-center hover:bg-gray-50">
-            <i class="fas fa-tags mr-2"></i> Manage Categories
+        <button onclick="toggleModal('addCategoryModal')" class="flex-1 bg-white border-2 border-gray-100 text-gray-600 px-6 py-4 sm:py-3 rounded-2xl font-bold flex items-center justify-center hover:bg-gray-50">
+            <i class="fas fa-tags mr-2"></i> Categories
         </button>
     </div>
 
@@ -37,13 +37,13 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left">
-                <thead class="bg-gray-50 text-xs text-gray-400 uppercase font-black tracking-widest">
+                <thead class="bg-gray-50 text-[10px] sm:text-xs text-gray-400 uppercase font-black tracking-widest">
                     <tr>
-                        <th class="px-8 py-5">Asset Name</th>
-                        <th class="px-8 py-5">Category</th>
-                        <th class="px-8 py-5">Purchase Info</th>
-                        <th class="px-8 py-5">Total Costs</th>
-                        <th class="px-8 py-5 text-right">Actions</th>
+                        <th class="px-4 sm:px-8 py-5">Asset</th>
+                        <th class="hidden sm:table-cell px-8 py-5">Category</th>
+                        <th class="px-4 sm:px-8 py-5">Cost</th>
+                        <th class="hidden md:table-cell px-8 py-5">Service</th>
+                        <th class="px-4 sm:px-8 py-5 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
@@ -55,26 +55,26 @@
                                 <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">ID: #AST-{{ asset.id }}</p>
                             </a>
                         </td>
-                        <td class="px-8 py-6">
+                        <td class="hidden sm:table-cell px-8 py-6">
                             <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-black uppercase">
                                 {{ asset.category.name if asset.category else 'Uncategorized' }}
                             </span>
                         </td>
-                        <td class="px-8 py-6">
-                            <p class="text-sm font-bold text-gray-700">৳ {{ "{:,.2f}".format(asset.purchase_cost) }}</p>
-                            <p class="text-xs text-gray-400">{{ asset.purchase_date.strftime('%d %b, %Y') if asset.purchase_date else 'No Date' }}</p>
+                        <td class="px-4 sm:px-8 py-6">
+                            <p class="text-xs sm:text-sm font-bold text-gray-700">৳ {{ "{:,.0f}".format(asset.purchase_cost) }}</p>
+                            <p class="text-[10px] text-gray-400">{{ asset.purchase_date.strftime('%d-%m-%y') if asset.purchase_date else 'No Date' }}</p>
                         </td>
-                        <td class="px-8 py-6">
+                        <td class="hidden md:table-cell px-8 py-6">
                             <div class="flex items-center space-x-2">
                                 <div class="w-2 h-2 rounded-full bg-rose-500"></div>
-                                <span class="font-mono font-bold text-rose-600">৳ {{ "{:,.2f}".format(asset.total_maintenance) }}</span>
+                                <span class="font-mono font-bold text-rose-600">৳ {{ "{:,.0f}".format(asset.total_maintenance) }}</span>
                             </div>
-                            <p class="text-[10px] text-gray-400 uppercase mt-1">Maintenance History</p>
+                            <p class="text-[10px] text-gray-400 uppercase mt-1">History</p>
                         </td>
-                        <td class="px-8 py-6 text-right space-x-3">
-                            <button onclick="openEditAsset('{{ asset.id }}', '{{ asset.name }}', '{{ asset.category_id }}', '{{ asset.purchase_cost }}', '{{ asset.purchase_date }}')" class="text-gray-400 hover:text-indigo-600"><i class="fas fa-edit"></i></button>
+                        <td class="px-4 sm:px-8 py-6 text-right space-x-1 sm:space-x-3">
+                            <button onclick="openEditAsset('{{ asset.id }}', '{{ asset.name }}', '{{ asset.category_id }}', '{{ asset.purchase_cost }}', '{{ asset.purchase_date }}')" class="p-2 text-gray-400 hover:text-indigo-600"><i class="fas fa-edit"></i></button>
                             <form action="{{ url_for('assets.delete_asset', id=asset.id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this asset?')">
-                                <button type="submit" class="text-gray-400 hover:text-rose-600"><i class="fas fa-trash"></i></button>
+                                <button type="submit" class="p-2 text-gray-400 hover:text-rose-600"><i class="fas fa-trash"></i></button>
                             </form>
                         </td>
                     </tr>

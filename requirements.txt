@@ -9,3 +9,9 @@ Flask-APScheduler==1.13.1
 openpyxl==3.1.2
 python-dotenv==1.0.1
 SQLAlchemy>=2.0.36
+pywebview==5.0.5
+pywhatkit==5.4
+num2words==0.5.13
+requests==2.31.0
+cloudscraper==1.2.71
+werkzeug==3.0.1

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, url_for
+from flask import Blueprint, render_template, request, jsonify, url_for, current_app
 from models import db, Unit, Customer, LedgerEntry, Account, MaintenanceTicket, Party, JournalEntry, MonthlyBill, Asset
 from datetime import datetime, timedelta
 from sqlalchemy import func, or_
@@ -188,6 +188,7 @@ def index():
             
             unit = customer.units[0] if customer.units else None
             overdue_list.append({
+                'id': customer.id,
                 'unit': unit.unit_number if unit else 'N/A',
                 'customer': customer.name,
                 'due_date': oldest_debit.parent.date.strftime('%d %b %Y') if oldest_debit else 'Unknown',
@@ -405,3 +406,43 @@ def balance_breakdown():
         balance_details.append({'name': acc.name, 'balance': bal, 'id': acc.id, 'code': acc.code})
         
     return render_template('reports/balance_breakdown.html', details=balance_details, total=total_balance, title=header_title)
+
+@main_bp.route('/api/whatsapp/send/<int:customer_id>')
+def send_whatsapp_reminder(customer_id):
+    customer = Customer.query.get_or_404(customer_id)
+    if not customer.whatsapp_number:
+        return jsonify({'success': False, 'message': 'WhatsApp number not set for this resident.'})
+        
+    # Calculate due amount
+    ar_acc = Account.query.filter_by(code='3930').first()
+    balance = 0
+    if ar_acc:
+        d = db.session.query(func.sum(LedgerEntry.debit)).filter_by(customer_id=customer.id, account_id=ar_acc.id).scalar() or 0
+        c = db.session.query(func.sum(LedgerEntry.credit)).filter_by(customer_id=customer.id, account_id=ar_acc.id).scalar() or 0
+        balance = d - c
+        
+    today = datetime.now().date()
+    cust_accrued = db.session.query(func.sum(MonthlyBill.penalty_to_apply))\
+        .filter(MonthlyBill.customer_id == customer.id, MonthlyBill.status != 'paid', today > MonthlyBill.due_date).scalar() or 0
+    total_due = balance + cust_accrued
+    
+    if total_due <= 0:
+        return jsonify({'success': False, 'message': 'No outstanding dues found.'})
+        
+    company_name = current_app.config.get('COMPANY_NAME', 'FlatSync')
+    message = f"Dear {customer.name}, you have an outstanding due amount of {total_due:,.2f} BDT. Please make the payment.\n\nSent by: {company_name}"
+    
+    try:
+        import pywhatkit as kit
+        import threading
+        
+        def send():
+            # Using the exact settings provided by user
+            kit.sendwhatmsg_instantly(customer.whatsapp_number, message, wait_time=15, tab_close=True, close_time=3)
+            
+        threading.Thread(target=send).start()
+        return jsonify({'success': True, 'message': 'WhatsApp reminder process initiated.'})
+    except ImportError:
+        return jsonify({'success': False, 'message': 'pywhatkit library not found on server.'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})

@@ -5,8 +5,8 @@
 {% block content %}
 <div class="space-y-8">
     <!-- Account Selector & Filter -->
-    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <form action="{{ url_for('reports.ledger_report') }}" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+    <div class="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-gray-100">
+        <form action="{{ url_for('reports.ledger_report') }}" method="GET" class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 items-end">
             <div>
                 <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Select Ledger Account</label>
                 <select name="account_id" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
@@ -26,13 +26,13 @@
                 <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">To Date</label>
                 <input type="date" name="to_date" value="{{ to_date or '' }}" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
             </div>
-            <div class="flex space-x-2">
-                <button type="submit" class="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
-                    Generate Ledger
+            <div class="col-span-2 lg:col-span-1 flex flex-col sm:flex-row gap-2">
+                <button type="submit" class="w-full sm:flex-1 bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+                    Generate
                 </button>
                 {% if target_account %}
-                <a href="{{ url_for('reports.export_ledger', account_id=target_account.id, from_date=from_date, to_date=to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg flex items-center">
-                    <i class="fas fa-file-excel mr-2 text-base"></i> Export
+                <a href="{{ url_for('reports.export_ledger', account_id=target_account.id, from_date=from_date, to_date=to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="w-full sm:flex-1 bg-emerald-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center">
+                    <i class="fas fa-file-excel mr-2 text-sm sm:text-base"></i> Export
                 </a>
                 {% endif %}
             </div>
@@ -44,14 +44,14 @@
     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left">
-                <thead class="bg-gray-50 text-[10px] text-gray-400 uppercase font-black tracking-widest">
+                <thead class="bg-gray-50 text-[9px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest">
                     <tr>
-                        <th class="px-8 py-5">Date</th>
-                        <th class="px-8 py-5">Reference</th>
-                        <th class="px-8 py-5">Description</th>
-                        <th class="px-8 py-5 text-right">Debit</th>
-                        <th class="px-8 py-5 text-right">Credit</th>
-                        <th class="px-8 py-5 text-right">Balance</th>
+                        <th class="px-4 sm:px-8 py-5">Date</th>
+                        <th class="hidden sm:table-cell px-8 py-5">Ref</th>
+                        <th class="px-4 sm:px-8 py-5">Details</th>
+                        <th class="px-4 sm:px-8 py-5 text-right">Debit</th>
+                        <th class="px-4 sm:px-8 py-5 text-right">Credit</th>
+                        <th class="px-4 sm:px-8 py-5 text-right">Balance</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
@@ -62,24 +62,24 @@
                         {% else %}
                             {% set ns.running_balance = ns.running_balance + (entry.credit - entry.debit) %}
                         {% endif %}
-                    <tr class="hover:bg-gray-50/50 transition-colors">
-                        <td class="px-8 py-6 text-sm text-gray-500 font-medium">{{ entry.parent.date.strftime('%d-%m-%Y') }}</td>
-                        <td class="px-8 py-6">
+                    <tr class="hover:bg-gray-50/50 transition-colors text-[10px] sm:text-sm">
+                        <td class="px-4 sm:px-8 py-6 text-gray-500 font-medium whitespace-nowrap">{{ entry.parent.date.strftime('%d-%m-%y') }}</td>
+                        <td class="hidden sm:table-cell px-8 py-6">
                             <span class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase">
                                 {{ entry.parent.reference or 'JR' }}
                             </span>
                         </td>
-                        <td class="px-8 py-6">
-                            <p class="font-bold text-gray-800">{{ entry.parent.description }}</p>
+                        <td class="px-4 sm:px-8 py-6">
+                            <p class="font-bold text-gray-800 line-clamp-1 truncate max-w-[100px] sm:max-w-none">{{ entry.parent.description }}</p>
                         </td>
-                        <td class="px-8 py-6 text-right font-mono text-sm text-emerald-600 font-black">
-                            {{ "৳ {:,.2f}".format(entry.debit) if entry.debit > 0 else '-' }}
+                        <td class="px-4 sm:px-8 py-6 text-right font-mono text-emerald-600 font-black whitespace-nowrap">
+                            {{ "{:,.0f}".format(entry.debit) if entry.debit > 0 else '-' }}
                         </td>
-                        <td class="px-8 py-6 text-right font-mono text-sm text-rose-600 font-black">
-                            {{ "৳ {:,.2f}".format(entry.credit) if entry.credit > 0 else '-' }}
+                        <td class="px-4 sm:px-8 py-6 text-right font-mono text-rose-600 font-black whitespace-nowrap">
+                            {{ "{:,.0f}".format(entry.credit) if entry.credit > 0 else '-' }}
                         </td>
-                        <td class="px-8 py-6 text-right font-mono text-sm font-black text-gray-900 bg-gray-50/30">
-                            ৳ {{ "{:,.2f}".format(ns.running_balance) }}
+                        <td class="px-4 sm:px-8 py-6 text-right font-mono font-black text-gray-900 bg-gray-50/30 whitespace-nowrap">
+                            {{ "{:,.0f}".format(ns.running_balance) }}
                         </td>
                     </tr>
                     {% endfor %}

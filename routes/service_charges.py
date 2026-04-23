@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
 from models import db, Unit, Customer, Account, JournalEntry, LedgerEntry, MonthlyBill
 from utils.accounting import record_journal_entry
 from datetime import datetime, date
@@ -54,6 +55,7 @@ def generate_bills():
         next_month_daily_rate = float(request.form.get('next_month_penalty_amount') or 0)
         
         due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+        penalty_mode = request.form.get('penalty_mode', 'auto')
     except (ValueError, TypeError) as e:
         flash(f"Invalid input values: {str(e)}", "danger")
         return redirect(url_for('service_charges.dashboard'))
@@ -84,7 +86,8 @@ def generate_bills():
             daily_penalty_rate=daily_penalty_rate,
             next_month_daily_rate=next_month_daily_rate,
             due_date=due_date,
-            status='unpaid'
+            status='unpaid',
+            penalty_mode=penalty_mode
         )
         db.session.add(bill)
         db.session.flush() # Get ID
@@ -118,24 +121,32 @@ def record_payment(bill_id):
         flash("This bill is already fully paid.", "warning")
         return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
 
-    # Record Penalty if after the deadline AND not already applied
+    # Penalty Handling
+    penalty_mode = request.form.get('penalty_mode', 'auto')
     penalty_now = 0
-    if payment_date > bill.due_date:
-        # Calculate penalty for THIS specific payment date
-        full_penalty_on_payment_date = bill.calculate_penalty(payment_date)
-        # We only record the difference if some penalty was already paid/recorded
-        penalty_now = full_penalty_on_payment_date - bill.penalty_amount
+    
+    if penalty_mode == 'manual':
+        try:
+            penalty_now = float(request.form.get('manual_penalty_amount') or 0)
+        except ValueError:
+            penalty_now = 0
+    else:
+        # Automatic calculation (existing logic)
+        if payment_date > bill.due_date:
+            full_penalty_on_payment_date = bill.calculate_penalty(payment_date)
+            # We only record the difference if some penalty was already paid/recorded
+            penalty_now = full_penalty_on_payment_date - bill.penalty_amount
+    
+    if penalty_now > 0:
+        bill.penalty_amount += penalty_now
         
-        if penalty_now > 0:
-            bill.penalty_amount += penalty_now
-            
-            # Record Penalty Entry in Ledger
-            penalty_desc = f"Late Penalty - {bill.unit.unit_number} ({date(bill.year, bill.month, 1).strftime('%B %Y')})"
-            penalty_items = [
-                {'account_code': '3930', 'debit': penalty_now, 'credit': 0, 'customer_id': bill.customer_id},
-                {'account_code': '4110', 'debit': 0, 'credit': penalty_now, 'customer_id': bill.customer_id}
-            ]
-            record_journal_entry(penalty_desc, penalty_items, reference="LATE-FEE", date=datetime.now(), monthly_bill_id=bill.id)
+        # Record Penalty Entry in Ledger
+        penalty_desc = f"Late Penalty - {bill.unit.unit_number} ({date(bill.year, bill.month, 1).strftime('%B %Y')})"
+        penalty_items = [
+            {'account_code': '3930', 'debit': penalty_now, 'credit': 0, 'customer_id': bill.customer_id},
+            {'account_code': '4110', 'debit': 0, 'credit': penalty_now, 'customer_id': bill.customer_id}
+        ]
+        record_journal_entry(penalty_desc, penalty_items, reference="LATE-FEE", date=datetime.now(), monthly_bill_id=bill.id)
 
     # Record Payment Entry
     debit_acc_id = request.form.get('debit_account_id')
@@ -160,6 +171,37 @@ def record_payment(bill_id):
     db.session.commit()
     
     flash(f"Payment of ৳{amount_paid:,.2f} recorded for Unit {bill.unit.unit_number}. Status: {bill.status.title()}", "success")
+    return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
+
+@service_charges_bp.route('/apply-manual-penalty/<int:bill_id>', methods=['POST'])
+@login_required
+def apply_manual_penalty(bill_id):
+    bill = MonthlyBill.query.get_or_404(bill_id)
+    try:
+        penalty_amount = float(request.form.get('penalty_amount') or 0)
+    except ValueError:
+        flash("Invalid penalty amount.", "danger")
+        return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
+    
+    if penalty_amount <= 0:
+        flash("Penalty amount must be greater than 0.", "warning")
+        return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
+    
+    from utils.accounting import record_journal_entry
+    
+    # Standard Accounting: DR 3930 (Receivable) / CR 4110 (Penalty Income)
+    penalty_desc = f"Manual Penalty - Unit {bill.unit.unit_number} ({date(bill.year, bill.month, 1).strftime('%B %Y')})"
+    penalty_items = [
+        {'account_code': '3930', 'debit': penalty_amount, 'credit': 0, 'customer_id': bill.customer_id},
+        {'account_code': '4110', 'debit': 0, 'credit': penalty_amount, 'customer_id': bill.customer_id}
+    ]
+    
+    record_journal_entry(penalty_desc, penalty_items, reference=f"MAN-PEN-{bill.id}", date=datetime.now(), monthly_bill_id=bill.id)
+    
+    bill.penalty_amount += penalty_amount
+    db.session.commit()
+    
+    flash(f"Manual Penalty of ৳{penalty_amount:,.2f} applied to Unit {bill.unit.unit_number}.", "success")
     return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
 
 @service_charges_bp.route('/service-charges/bill/<int:bill_id>')

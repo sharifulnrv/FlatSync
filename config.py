@@ -28,7 +28,9 @@ def get_app_config():
                 
     # If any required field is missing or the configured database folder is missing, re-run setup
     db_path = config.get('db_path')
-    if not all(k in config for k in ['db_path', 'company_name', 'company_address']) or (db_path and not os.path.exists(db_path)):
+    # Trigger setup if company info is missing OR if db_path is specified but invalid
+    # Empty db_path is now treated as "use default instance folder"
+    if not config.get('company_name') or not config.get('company_address') or (db_path and not os.path.exists(db_path)):
         root = tk.Tk()
         root.title("FlatSync Initial Setup")
         root.geometry("500x400")
@@ -53,7 +55,7 @@ def get_app_config():
         
         # Database Folder
         ttk.Label(main_frame, text="Database Save Location:").pack(fill='x', pady=(10, 0))
-        folder_var = tk.StringVar(value=config.get('db_path', os.path.abspath('instance')))
+        folder_var = tk.StringVar(value=config.get('db_path') or os.path.abspath('instance'))
         folder_frame = ttk.Frame(main_frame)
         folder_frame.pack(fill='x', pady=5)
         ttk.Entry(folder_frame, textvariable=folder_var).pack(side='left', fill='x', expand=True, padx=(0, 5))
@@ -96,14 +98,21 @@ _config_data = get_app_config()
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-12345'
     
-    DB_FOLDER = _config_data.get('db_path', os.path.abspath('instance'))
+    DB_FOLDER = _config_data.get('db_path') or os.path.abspath('instance')
     DB_NAME = 'real_estate.db'
     
     COMPANY_NAME = _config_data.get('company_name', 'Assurance Sultan Legacy Flat Owners Association')
     COMPANY_ADDRESS = _config_data.get('company_address', '23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka')
     
+    # Ensure the directory exists
+    if not os.path.exists(DB_FOLDER):
+        os.makedirs(DB_FOLDER, exist_ok=True)
+    
     # Using absolute path for cross-platform reliability
-    SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(DB_FOLDER, DB_NAME)}"
+    # SQLite on Windows: sqlite:///C:/path/to/db (3 slashes + drive letter)
+    _db_path = os.path.join(DB_FOLDER, DB_NAME).replace('\\', '/')
+    SQLALCHEMY_DATABASE_URI = f"sqlite:///{_db_path}"
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SCHEDULER_API_ENABLED = True
+    WEBVIEW_ENABLED = False
