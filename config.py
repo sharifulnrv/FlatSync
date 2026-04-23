@@ -116,3 +116,5 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SCHEDULER_API_ENABLED = True
     WEBVIEW_ENABLED = False
+    DEBUG = False
+    ENV = 'production'

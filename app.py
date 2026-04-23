@@ -169,9 +169,7 @@ def seed_admin():
 def load_user(id):
     return User.query.get(int(id))
 
-import webview
 import threading
-import webbrowser
 import sys
 import os
 from pathlib import Path
@@ -184,7 +182,7 @@ class JSAPI:
         webbrowser.open(url)
 
 def run_server(app):
-    app.run(port=5999, debug=True, use_reloader=False)
+    app.run(port=5999, debug=app.config.get('DEBUG', False), use_reloader=False)
 
 def wait_for_server(window):
     """ Poll the server until it's ready, then switch from loading screen to app """
@@ -210,7 +208,10 @@ if __name__ == '__main__':
     app = create_app()
     api = JSAPI()
     
-    if app.config.get('WEBVIEW_ENABLED', True):
+    if app.config.get('WEBVIEW_ENABLED', False):
+        import webview
+        import webbrowser
+        
         # Start Flask in a background thread
         server_thread = threading.Thread(target=run_server, args=(app,))
         server_thread.daemon = True
@@ -233,5 +234,6 @@ if __name__ == '__main__':
         webview.start()
     else:
         # Standard Browser Mode: Run Flask directly
-        print("WEBVIEW_ENABLED is false. Running in Browser Mode at http://127.0.0.1:5999")
-        app.run(port=5999, debug=True)
+        is_debug = app.config.get('DEBUG', False)
+        print(f"WEBVIEW_ENABLED is false. Running in Browser Mode at http://127.0.0.1:5999 (Debug: {is_debug})")
+        app.run(port=5999, debug=is_debug)
