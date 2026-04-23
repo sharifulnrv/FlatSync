@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect, url_for, request
 from config import Config
 from models import db, User, Account
 from flask_migrate import Migrate
@@ -30,6 +30,8 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
+    login.login_view = 'auth.login'
+    login.login_message_category = 'info'
     app.config['PROPAGATE_EXCEPTIONS'] = True
 
     with app.app_context():
@@ -39,6 +41,14 @@ def create_app(config_class=Config):
         seed_coa()
         # Seed Admin
         seed_admin()
+
+    from flask_login import current_user
+    @app.before_request
+    def enforce_login():
+        if not current_user.is_authenticated:
+            # Allow access to login and static files
+            if request.endpoint and not request.endpoint.startswith('auth.') and request.endpoint != 'static':
+                return redirect(url_for('auth.login'))
 
     @app.errorhandler(500)
     def handle_500(e):
@@ -75,6 +85,7 @@ def create_app(config_class=Config):
     from routes.events import events_bp
     from routes.parties import parties_bp
     from routes.service_charges import service_charges_bp
+    from routes.auth import auth_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(units_bp)
@@ -85,6 +96,7 @@ def create_app(config_class=Config):
     app.register_blueprint(events_bp)
     app.register_blueprint(parties_bp)
     app.register_blueprint(service_charges_bp)
+    app.register_blueprint(auth_bp)
 
     @app.context_processor
     def utility_processor():

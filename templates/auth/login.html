@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | FlatSync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; overflow: hidden; }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        
+        /* Animated Background */
+        .vibrant-mesh {
+            background-color: #f8fafc;
+            position: relative;
+            z-index: 0;
+        }
+        
+        .blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            animation: float 20s infinite alternate;
+            opacity: 0.4;
+        }
+        
+        .blob-1 { background-color: #6366f1; top: -150px; left: -100px; animation-delay: 0s; }
+        .blob-2 { background-color: #10b981; bottom: -150px; right: -100px; animation-delay: -5s; }
+        .blob-3 { background-color: #f43f5e; top: 50%; left: 60%; transform: translate(-50%, -50%); animation-delay: -10s; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        .stagger-1 { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        .stagger-2 { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
+        .stagger-3 { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; opacity: 0; }
+        .stagger-4 { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
+        .stagger-5 { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards; opacity: 0; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-pulse {
+            animation: logoPulse 4s infinite ease-in-out;
+        }
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(99, 102, 241, 0); }
+            50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(99, 102, 241, 0.3); }
+        }
+        
+        .input-focus-effect:focus-within {
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6 vibrant-mesh overflow-hidden">
+
+    <!-- Procedural Background Elements -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="max-w-md w-full relative z-10">
+        <!-- Logo & Branding -->
+        <div class="text-center mb-10 stagger-1">
+            <div class="inline-flex items-center justify-center w-24 h-24 bg-indigo-600 rounded-[2.5rem] shadow-2xl logo-pulse mb-6 group transition-all">
+                <img src="{{ url_for('static', filename='logo.png') }}" class="w-14 h-14 brightness-110">
+            </div>
+            <h1 class="text-5xl font-black text-slate-900 tracking-tighter uppercase mb-2">FlatSync</h1>
+            <p class="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] ml-1">Administrative Gateway</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="glass p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden stagger-2 border-white/50">
+            <div class="absolute top-0 right-0 p-8 opacity-5">
+                <i class="fas fa-shield-alt text-8xl text-indigo-900"></i>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-8 p-5 rounded-3xl flex items-center space-x-4 text-xs font-bold animate-pulse
+                            {% if category == 'success' %}bg-emerald-500 text-white{% else %}bg-rose-500 text-white{% endif %}">
+                            <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} text-lg"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('auth.login') }}" method="POST" class="space-y-8 relative z-10">
+                <!-- Username -->
+                <div class="space-y-3 stagger-3">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Operator Identity</label>
+                    <div class="relative input-focus-effect rounded-[1.8rem] transition-all">
+                        <span class="absolute left-7 top-1/2 -translate-y-1/2 text-indigo-400">
+                            <i class="fas fa-fingerprint"></i>
+                        </span>
+                        <input type="text" name="username" required placeholder="User identifier" 
+                               class="w-full pl-16 pr-8 py-6 bg-white/60 border border-white/80 rounded-[1.8rem] focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800 transition-all placeholder:text-slate-300 placeholder:font-medium">
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="space-y-3 stagger-4">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Encryption Key</label>
+                    <div class="relative input-focus-effect rounded-[1.8rem] transition-all">
+                        <span class="absolute left-7 top-1/2 -translate-y-1/2 text-indigo-400">
+                            <i class="fas fa-key"></i>
+                        </span>
+                        <input type="password" name="password" required placeholder="••••••••" 
+                               class="w-full pl-16 pr-8 py-6 bg-white/60 border border-white/80 rounded-[1.8rem] focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800 transition-all">
+                    </div>
+                </div>
+
+                <!-- Remember Me -->
+                <div class="flex items-center ml-2 stagger-4">
+                    <label class="flex items-center cursor-pointer group">
+                        <input type="checkbox" name="remember" class="hidden">
+                        <div class="w-6 h-6 border-2 border-indigo-200 rounded-xl flex items-center justify-center mr-4 transition-all group-hover:border-indigo-500 bg-white/50">
+                            <i class="fas fa-check text-white text-xs scale-0 transition-transform duration-300" id="checkmark"></i>
+                        </div>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition-colors">Maintain Persistent Session</span>
+                    </label>
+                </div>
+
+                <!-- Submit -->
+                <div class="stagger-5 pt-2">
+                    <button type="submit" 
+                            class="w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] shadow-2xl shadow-indigo-200 hover:bg-slate-900 hover:shadow-slate-200 hover:-translate-y-1.5 transition-all duration-300 active:scale-[0.97] flex items-center justify-center gap-3">
+                        Initialise Workspace <i class="fas fa-arrow-right text-[10px] opacity-50"></i>
+                    </button>
+                    <p class="text-center mt-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
+                        System Access restricted to Authorized Personnel
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <!-- System Status Bar -->
+        <div class="mt-10 flex justify-center items-center gap-6 stagger-5">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">System Online</span>
+            </div>
+            <div class="w-px h-3 bg-slate-200"></div>
+            <div class="flex items-center gap-2 text-indigo-400">
+                <i class="fas fa-lock text-[8px]"></i>
+                <span class="text-[9px] font-black uppercase tracking-tighter">AES-256 Enabled</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Checkbox interaction
+        const checkbox = document.querySelector('input[type="checkbox"]');
+        const checkmark = document.getElementById('checkmark');
+        const container = checkbox.parentElement.querySelector('div');
+
+        checkbox.addEventListener('change', function() {
+            if(this.checked) {
+                container.classList.add('bg-indigo-600', 'border-indigo-600');
+                checkmark.classList.remove('scale-0');
+                checkmark.classList.add('scale-100');
+            } else {
+                container.classList.remove('bg-indigo-600', 'border-indigo-600');
+                checkmark.classList.remove('scale-100');
+                checkmark.classList.add('scale-0');
+            }
+        });
+
+        // Background Blob Drift
+        document.addEventListener('mousemove', (e) => {
+            const blobs = document.querySelectorAll('.blob');
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            blobs.forEach((blob, i) => {
+                const shiftX = (x - 0.5) * (20 + i * 10);
+                const shiftY = (y - 0.5) * (20 + i * 10);
+                blob.style.translate = `${shiftX}px ${shiftY}px`;
+            });
+        });
+    </script>
+</body>
+</html>

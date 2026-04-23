@@ -95,8 +95,20 @@
                 <i class="fas fa-tools w-6 text-orange-400"></i> Maintenance Control
             </a>
         </nav>
-        <div class="p-4 border-t border-slate-800 text-center">
-            <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest">FlatSync v1.0</p>
+        <div class="p-6 border-t border-slate-800">
+            <div class="flex items-center mb-4">
+                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black uppercase text-white mr-3">
+                    {{ current_user.username[:2] }}
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-[10px] font-black text-white uppercase truncate">{{ current_user.username }}</p>
+                    <p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{{ current_user.role }}</p>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="flex items-center justify-center w-full py-2 bg-slate-800 hover:bg-rose-500/20 text-gray-400 hover:text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                <i class="fas fa-sign-out-alt mr-2"></i> Log Out
+            </a>
+            <p class="mt-4 text-[8px] text-slate-600 font-black uppercase tracking-widest">FlatSync v1.1</p>
         </div>
     </aside>
 
