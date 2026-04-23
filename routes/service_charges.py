@@ -110,6 +110,7 @@ def record_payment(bill_id):
     bill = MonthlyBill.query.get_or_404(bill_id)
     payment_date_str = request.form.get('payment_date')
     payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d').date() if payment_date_str else date.today()
+    voucher_number = request.form.get('voucher_number')
     
     try:
         amount_paid = float(request.form.get('amount_paid') or 0)
@@ -158,7 +159,10 @@ def record_payment(bill_id):
         {'account_code': debit_code, 'debit': amount_paid, 'credit': 0, 'customer_id': bill.customer_id},
         {'account_code': '3930', 'debit': 0, 'credit': amount_paid, 'customer_id': bill.customer_id}
     ]
-    record_journal_entry(payment_desc, payment_items, reference=f"PAY-{debit_code}", date=datetime.combine(payment_date, datetime.min.time()), monthly_bill_id=bill.id)
+    record_journal_entry(payment_desc, payment_items, reference=f"PAY-{debit_code}", 
+                         date=datetime.combine(payment_date, datetime.min.time()), 
+                         monthly_bill_id=bill.id,
+                         voucher_number=voucher_number)
     
     bill.paid_amount += amount_paid
     bill.paid_date = payment_date

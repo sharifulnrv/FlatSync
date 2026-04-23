@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block header %}Voucher Management{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8 px-4">
+    <!-- Breadcrumb -->
+    <div class="mb-8">
+        <a href="javascript:history.back()" class="text-sm font-black text-gray-400 uppercase tracking-widest hover:text-indigo-600 transition-colors flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Core Form Card -->
+    <div class="bg-white rounded-[2.5rem] shadow-2xl shadow-indigo-100 border border-gray-100 overflow-hidden animate-in fade-in zoom-in duration-500">
+        <div class="p-8 sm:p-12">
+            <div class="flex items-center space-x-6 mb-12">
+                <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center text-3xl shadow-inner">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-black text-gray-800 tracking-tight">Voucher Modification</h2>
+                    <p class="text-sm font-bold text-gray-400 uppercase tracking-widest mt-1">Refinement Workspace</p>
+                </div>
+            </div>
+
+            <!-- Transaction Audit Summary -->
+            <div class="bg-gray-50 rounded-3xl p-6 mb-12 border border-gray-100">
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Target Account</p>
+                        <p class="text-sm font-black text-gray-700 font-mono tracking-tighter">#TXN-{{ "%05d"|format(journal.id) }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Clearance Date</p>
+                        <p class="text-sm font-black text-gray-700">{{ journal.date.strftime('%d %B, %Y') }}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Description</p>
+                        <p class="text-sm font-black text-indigo-600 truncate">{{ journal.description }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" class="space-y-8">
+                <div>
+                    <label class="block text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 ml-2">Voucher Number (Reference ID)</label>
+                    <div class="relative group">
+                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-indigo-500 transition-colors">
+                            <i class="fas fa-hashtag text-xl"></i>
+                        </span>
+                        <input type="text" name="voucher_number" value="{{ journal.voucher_number or '' }}" 
+                               placeholder="Enter ৳ Voucher Number / Transaction Ref" 
+                               class="w-full bg-slate-50 border-2 border-transparent rounded-3xl p-6 pl-14 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 font-black text-xl text-gray-800 transition-all placeholder:text-gray-300 shadow-sm"
+                               autofocus>
+                    </div>
+                    <div class="mt-4 px-2">
+                        <p class="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-widest">
+                            <i class="fas fa-info-circle mr-1 text-indigo-400"></i> This field is optional. If provided, it will appear on money receipts and audit trails.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-black shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:shadow-[0_15px_30px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 transition-all active:scale-[0.98] flex items-center justify-center">
+                        <i class="fas fa-save mr-3"></i> Sync & Update Vulner
+                    </button>
+                    <p class="text-center mt-6 text-[9px] font-black text-gray-300 uppercase tracking-[0.3em]">Hardware Encrypted Sync Protocol Active</p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Security Information -->
+    <div class="mt-12 text-center opacity-40">
+        <div class="flex items-center justify-center space-x-6 text-gray-400">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-lock"></i>
+                <span class="text-[9px] font-black uppercase tracking-widest">SSL Secure</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-shield-alt"></i>
+                <span class="text-[9px] font-black uppercase tracking-widest">GL Validated</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

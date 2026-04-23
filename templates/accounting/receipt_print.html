@@ -43,6 +43,14 @@
                                         <span style="font-size: 22pt; font-weight: 900; color: #0f172a; letter-spacing: -1pt;">#MR-{{ "%05d"|format(journal.id) }}</span>
                                     </td>
                                 </tr>
+                                {% if journal.voucher_number %}
+                                <tr>
+                                    <td style="text-align: right; border:0; padding-bottom: 3pt;">
+                                        <span style="font-size: 8pt; color: #94a3b8; font-weight: bold; text-transform: uppercase;">Voucher Reference</span><br>
+                                        <span style="font-size: 14pt; font-weight: 900; color: #334155;">{{ journal.voucher_number }}</span>
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 <tr>
                                     <td style="text-align: right; border:0; padding-top: 5pt;">
                                         <span style="font-size: 8pt; color: #94a3b8; font-weight: bold; text-transform: uppercase;">Clearance Date</span><br>
@@ -145,6 +153,12 @@
                         <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-1">Receipt No</p>
                         <p class="text-5xl font-black text-slate-900 tracking-tighter">#MR-{{ "%05d"|format(journal.id) }}</p>
                     </div>
+                    {% if journal.voucher_number %}
+                    <div class="mb-6">
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-1">Voucher Trace</p>
+                        <p class="text-2xl font-black text-indigo-600 tracking-tight">{{ journal.voucher_number }}</p>
+                    </div>
+                    {% endif %}
                     <div>
                         <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-1">Clearance Date</p>
                         <p class="text-xl font-black text-slate-600">{{ journal.date.strftime('%B %d, %Y') }}</p>

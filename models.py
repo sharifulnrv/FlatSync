@@ -37,6 +37,7 @@ class JournalEntry(db.Model):
     date = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.String(255))
     reference = db.Column(db.String(50)) # e.g., Invoice #88
+    voucher_number = db.Column(db.String(50), nullable=True)
     monthly_bill_id = db.Column(db.Integer, db.ForeignKey('monthly_bill.id'), nullable=True)
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=True)
     bill_journal_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
@@ -222,5 +223,39 @@ class MonthlyBill(db.Model):
         if total == 0: return 0
         return max(0, (self.balance_due / total) * 100)
     
+    @property
+    def voucher_number(self):
+        """Return the voucher number from any linked transaction."""
+        if not self.transactions:
+            return None
+        for txn in self.transactions:
+            if txn.voucher_number:
+                return txn.voucher_number
+        return None
+
+    @property
+    def payment_journal_id(self):
+        """Return the ID of the transaction most likely to be the payment."""
+        if not self.transactions:
+            return None
+        
+        # 1. Look for explicit payment description
+        for txn in self.transactions:
+            if txn.description and "payment" in txn.description.lower():
+                return txn.id
+        
+        # 2. Look for any transaction with a voucher
+        for txn in self.transactions:
+            if txn.voucher_number:
+                return txn.id
+                
+        # 3. Fallback to latest transaction if bill is paid/partial
+        if self.status != 'unpaid':
+            # Sort by ID descending to get the latest
+            sorted_txns = sorted(self.transactions, key=lambda x: x.id, reverse=True)
+            return sorted_txns[0].id
+            
+        return None
+
     unit = db.relationship('Unit', backref='monthly_bills')
     customer = db.relationship('Customer', backref='monthly_bills')

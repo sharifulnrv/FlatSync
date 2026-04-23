@@ -604,3 +604,20 @@ def add_liquid_account():
             flash(f"Error: {str(e)}", "error")
             
     return redirect(url_for('main.balance_breakdown'))
+
+@accounting_bp.route('/accounting/update-voucher/<int:journal_id>', methods=['GET', 'POST'])
+def update_voucher(journal_id):
+    journal = JournalEntry.query.get_or_404(journal_id)
+    
+    if request.method == 'POST':
+        new_voucher = request.form.get('voucher_number')
+        journal.voucher_number = new_voucher
+        try:
+            db.session.commit()
+            flash("Voucher number updated successfully!", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error updating voucher: {str(e)}", "error")
+        return redirect(url_for('service_charges.view_month', year=journal.date.year, month=journal.date.month))
+            
+    return render_template('accounting/edit_voucher.html', journal=journal)

@@ -1,7 +1,7 @@
 from models import db, JournalEntry, LedgerEntry, Account, Unit, Customer
 from datetime import datetime
 
-def record_journal_entry(description, items, reference=None, date=None, monthly_bill_id=None, event_id=None):
+def record_journal_entry(description, items, reference=None, date=None, monthly_bill_id=None, event_id=None, voucher_number=None):
     """
     items: list of dictionaries: 
     [{'account_code': '1001', 'debit': 100, 'credit': 0, 'customer_id': 1}]
@@ -16,7 +16,9 @@ def record_journal_entry(description, items, reference=None, date=None, monthly_
     if abs(total_debit - total_credit) > 0.001:
         raise ValueError("Debits must equal credits")
     
-    journal = JournalEntry(date=date, description=description, reference=reference, monthly_bill_id=monthly_bill_id, event_id=event_id)
+    journal = JournalEntry(date=date, description=description, reference=reference, 
+                          monthly_bill_id=monthly_bill_id, event_id=event_id, 
+                          voucher_number=voucher_number)
     db.session.add(journal)
     db.session.flush() # Get journal.id
     
