@@ -104,10 +104,7 @@ def index():
         ar_credits = db.session.query(func.sum(LedgerEntry.credit)).filter_by(account_id=ar_acc.id).scalar() or 0
         total_due = ar_debits - ar_credits
         
-        # Add Accrued (Pending) Penalties from Service Charges
-        accrued_penalties = db.session.query(func.sum(MonthlyBill.penalty_to_apply))\
-            .filter(MonthlyBill.status == 'unpaid', datetime.now().date() > MonthlyBill.due_date).scalar() or 0
-        total_due += accrued_penalties
+        total_due = ar_debits - ar_credits
 
     # NEW: Total Cost (Expense sum)
     expense_accs = Account.query.filter_by(type='expense', is_summary=False).all()
@@ -170,17 +167,13 @@ def index():
         
         today = datetime.now().date()
         for customer, balance in debtors:
-            cust_accrued = db.session.query(func.sum(MonthlyBill.penalty_to_apply))\
-                .filter(MonthlyBill.customer_id == customer.id, MonthlyBill.status != 'paid', today > MonthlyBill.due_date).scalar() or 0
-            
-            total_balance = balance + cust_accrued
+            total_balance = balance
             
             # Lifetime stats for % calculation
             total_billed = db.session.query(func.sum(MonthlyBill.amount + MonthlyBill.penalty_amount))\
                 .filter(MonthlyBill.customer_id == customer.id).scalar() or 0
-            # Add current accrued to total billed for accurate %
-            final_billed = total_billed + cust_accrued
-            due_percent = (total_balance / final_billed * 100) if final_billed > 0 else 0
+            
+            due_percent = (total_balance / total_billed * 100) if total_billed > 0 else 0
 
             oldest_debit = LedgerEntry.query.filter_by(customer_id=customer.id, account_id=ar_acc.id)\
                 .filter(LedgerEntry.debit > 0)\
