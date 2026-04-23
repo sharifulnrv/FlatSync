@@ -96,15 +96,15 @@
             </a>
         </nav>
         <div class="p-6 border-t border-slate-800">
-            <div class="flex items-center mb-4">
-                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black uppercase text-white mr-3">
+            <a href="{{ url_for('auth.profile') }}" class="flex items-center mb-4 group">
+                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black uppercase text-white mr-3 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-900/50">
                     {{ current_user.username[:2] }}
                 </div>
                 <div class="flex-1 overflow-hidden">
-                    <p class="text-[10px] font-black text-white uppercase truncate">{{ current_user.username }}</p>
-                    <p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{{ current_user.role }}</p>
+                    <p class="text-[10px] font-black text-white uppercase truncate group-hover:text-indigo-400 transition-colors">{{ current_user.username }}</p>
+                    <p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Security Settings</p>
                 </div>
-            </div>
+            </a>
             <a href="{{ url_for('auth.logout') }}" class="flex items-center justify-center w-full py-2 bg-slate-800 hover:bg-rose-500/20 text-gray-400 hover:text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
                 <i class="fas fa-sign-out-alt mr-2"></i> Log Out
             </a>
