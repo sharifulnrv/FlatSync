@@ -92,17 +92,43 @@ def post_bill():
         flash(f'Bill posted successfully (Inv #{journal.id})', 'success')
         return redirect(url_for('accounting.invoice_print', journal_id=journal.id))
         
-    from models import Asset
+    from models import Asset, JournalEntry, LedgerEntry
     suppliers = Party.query.all()
     assets = Asset.query.all()
     expense_accounts = Account.query.filter(Account.type == 'expense', Account.is_summary == False).all()
     payable_accounts = Account.query.filter(Account.type == 'liability', Account.is_summary == False).all()
+    
+    # Fetch recent bills
+    bills = JournalEntry.query.filter_by(reference="BILL").order_by(JournalEntry.id.desc()).limit(20).all()
+    
+    # Add payment status to each bill
+    bill_data = []
+    for bill in bills:
+        total_amount = sum(e.debit for e in bill.entries if e.debit > 0)
+        
+        # Calculate total paid for this specific bill
+        total_paid = db.session.query(func.sum(LedgerEntry.debit)).join(JournalEntry).filter(
+            JournalEntry.bill_journal_id == bill.id,
+            LedgerEntry.account_id.in_(db.session.query(Account.id).filter(Account.type == 'liability'))
+        ).scalar() or 0
+        
+        balance = total_amount - total_paid
+        status = "PAID" if balance <= 0 else "PARTIAL" if total_paid > 0 else "OPEN"
+        
+        bill_data.append({
+            'journal': bill,
+            'total': total_amount,
+            'paid': total_paid,
+            'balance': balance,
+            'status': status
+        })
     
     return render_template('accounting/post_bill.html', 
                             suppliers=suppliers, 
                             assets=assets,
                             expense_accounts=expense_accounts,
                             payable_accounts=payable_accounts,
+                            recent_bills=bill_data,
                             today_date=datetime.now().strftime('%Y-%m-%d'))
 
 @accounting_bp.route('/accounting/record-payment', methods=['GET', 'POST'])
@@ -146,11 +172,16 @@ def record_payment():
     # Fetch potentially open bills (reference="BILL")
     open_bills = JournalEntry.query.filter_by(reference="BILL").order_by(JournalEntry.id.desc()).all()
     
+    selected_party_id = request.args.get('party_id', type=int)
+    selected_bill_id = request.args.get('bill_journal_id', type=int)
+    
     return render_template('accounting/record_payment.html', 
                             suppliers=suppliers, 
                             bank_accounts=bank_accounts,
                             payable_accounts=payable_accounts,
                             open_bills=open_bills,
+                            selected_party_id=selected_party_id,
+                            selected_bill_id=selected_bill_id,
                             today_date=datetime.now().strftime('%Y-%m-%d'))
 
 @accounting_bp.route('/accounting/billing')

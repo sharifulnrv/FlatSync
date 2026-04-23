@@ -91,5 +91,89 @@
             </div>
         </form>
     </div>
+
+    <!-- Bill History List -->
+    <div class="mt-12 bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden">
+        <div class="px-12 py-8 border-b border-gray-50 flex justify-between items-center">
+            <div>
+                <h3 class="text-xl font-black text-gray-800 uppercase tracking-tighter">Recent Bills</h3>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Track & Settle Outstanding Liabilities</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">{{ recent_bills|length }} Records</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    <tr>
+                        <th class="px-12 py-4">Bill ID</th>
+                        <th class="px-6 py-4">Date</th>
+                        <th class="px-6 py-4">Vendor</th>
+                        <th class="px-6 py-4 text-right">Amount</th>
+                        <th class="px-6 py-4 text-center">Status</th>
+                        <th class="px-12 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in recent_bills %}
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        <td class="px-12 py-6">
+                            <p class="font-black text-gray-800 tracking-tighter">#{{ item.journal.id }}</p>
+                            <p class="text-[9px] text-gray-400 font-bold truncate max-w-[150px]">{{ item.journal.description }}</p>
+                        </td>
+                        <td class="px-6 py-6 font-bold text-gray-500 text-sm">
+                            {{ item.journal.date.strftime('%d-%m-%Y') }}
+                        </td>
+                        <td class="px-6 py-6">
+                            {% set party = item.journal.entries|selectattr('party_id')|first %}
+                            {% if party %}
+                            <p class="font-bold text-gray-700 text-sm">{{ party.party.name }}</p>
+                            <p class="text-[9px] text-indigo-500 font-black uppercase">{{ party.party.type }}</p>
+                            {% else %}
+                            <span class="text-gray-400 italic text-xs">No Party Linked</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-6 text-right">
+                            <p class="font-black text-gray-800">৳{{ "{:,.2f}".format(item.total) }}</p>
+                            {% if item.paid > 0 %}
+                            <p class="text-[9px] text-emerald-500 font-bold">Paid: ৳{{ "{:,.2f}".format(item.paid) }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-6 text-center">
+                            <span class="px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase
+                                {% if item.status == 'PAID' %} bg-emerald-100 text-emerald-700
+                                {% elif item.status == 'PARTIAL' %} bg-amber-100 text-amber-700
+                                {% else %} bg-rose-100 text-rose-700 {% endif %}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        <td class="px-12 py-6 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{{ url_for('accounting.invoice_print', journal_id=item.journal.id) }}" class="p-2 text-indigo-400 hover:text-indigo-600 transition-colors" title="View/Print Invoice">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                                {% if item.status != 'PAID' %}
+                                <a href="{{ url_for('accounting.record_payment', party_id=party.party_id if party else '', bill_journal_id=item.journal.id) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">
+                                    Settle
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-12 py-20 text-center">
+                            <div class="flex flex-col items-center opacity-30">
+                                <i class="fas fa-file-invoice text-5xl mb-4"></i>
+                                <p class="text-sm font-black uppercase tracking-widest">No Bills Recorded Yet</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

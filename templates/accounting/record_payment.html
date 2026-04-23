@@ -19,7 +19,7 @@
                     <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Select Vendor / Party</label>
                     <select name="party_id" required class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
                         {% for sub in suppliers %}
-                        <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.type }})</option>
+                        <option value="{{ sub.id }}" {% if selected_party_id == sub.id %}selected{% endif %}>{{ sub.name }} ({{ sub.type }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -30,7 +30,7 @@
                     <select name="bill_journal_id" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700">
                         <option value="">-- No Specific Bill (General Payment) --</option>
                         {% for bill in open_bills %}
-                        <option value="{{ bill.id }}">Bill #{{ bill.id }} - {{ bill.description[:30] }}... (৳{{ "{:,.2f}".format(sum_debits(bill)) }})</option>
+                        <option value="{{ bill.id }}" {% if selected_bill_id == bill.id %}selected{% endif %}>Bill #{{ bill.id }} - {{ bill.description[:30] }}... (৳{{ "{:,.2f}".format(sum_debits(bill)) }})</option>
                         {% endfor %}
                     </select>
                 </div>
