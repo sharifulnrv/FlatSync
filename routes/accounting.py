@@ -38,7 +38,23 @@ def dashboard():
         else:
             grouped[cat_key][sub_key]['accounts'].append(acc)
 
-    recent_journals = JournalEntry.query.order_by(JournalEntry.id.desc()).limit(10).all()
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    query = JournalEntry.query.order_by(JournalEntry.id.desc())
+    
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        query = query.filter(JournalEntry.date >= start_date)
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        query = query.filter(JournalEntry.date <= end_date)
+        
+    # If no filters, limit to 20. If filters, show all or more? Let's show all if filtered.
+    if not start_date_str and not end_date_str:
+        journals = query.limit(20).all()
+    else:
+        journals = query.all()
     
     # Calculate Summary for Widgets
     # 1. Cash on Hand (Assets code starting 31)
@@ -66,8 +82,10 @@ def dashboard():
     return render_template('accounting_dashboard.html', 
                             grouped_accounts=grouped, 
                             suppliers=suppliers,
-                            journals=recent_journals,
-                            summary=summary)
+                            journals=journals,
+                            summary=summary,
+                            start_date=start_date_str,
+                            end_date=end_date_str)
 
 @accounting_bp.route('/accounting/post-bill', methods=['GET', 'POST'])
 def post_bill():
@@ -621,3 +639,67 @@ def update_voucher(journal_id):
         return redirect(url_for('service_charges.view_month', year=journal.date.year, month=journal.date.month))
             
     return render_template('accounting/edit_voucher.html', journal=journal)
+
+@accounting_bp.route('/accounting/edit-transaction/<int:journal_id>', methods=['GET', 'POST'])
+def edit_transaction(journal_id):
+    journal = JournalEntry.query.get_or_404(journal_id)
+    if request.method == 'POST':
+        # Update Journal metadata
+        journal.description = request.form.get('description')
+        date_str = request.form.get('date')
+        if date_str:
+            journal.date = datetime.strptime(date_str, '%Y-%m-%d')
+        
+        # Update Ledger Entries
+        for entry in journal.entries:
+            key = f"amount_{entry.id}"
+            if key in request.form:
+                new_val = float(request.form.get(key) or 0)
+                if entry.debit > 0:
+                    entry.debit = new_val
+                else:
+                    entry.credit = new_val
+        
+        # Validation: check balance
+        total_debit = sum(e.debit for e in journal.entries)
+        total_credit = sum(e.credit for e in journal.entries)
+        
+        if abs(total_debit - total_credit) > 0.01:
+            db.session.rollback()
+            flash(f"Error: Transaction is unbalanced (Debit: {total_debit}, Credit: {total_credit})", "danger")
+            return redirect(url_for('accounting.edit_transaction', journal_id=journal_id))
+        
+        db.session.commit()
+        
+        # Propagation: if linked to a bill, recalculate
+        if journal.monthly_bill:
+            journal.monthly_bill.recalculate_from_ledger()
+            db.session.commit()
+            
+        flash(f"Transaction #{journal.id} updated successfully!", "success")
+        return redirect(url_for('accounting.dashboard'))
+        
+    return render_template('accounting/edit_transaction.html', journal=journal)
+
+@accounting_bp.route('/accounting/delete-transaction/<int:journal_id>', methods=['POST'])
+def delete_transaction(journal_id):
+    journal = JournalEntry.query.get_or_404(journal_id)
+    bill = journal.monthly_bill # Save reference for recalculation
+    
+    try:
+        # LedgerEntry deletion should be handled by backref or manual cascade
+        for entry in journal.entries:
+            db.session.delete(entry)
+        db.session.delete(journal)
+        db.session.commit()
+        
+        if bill:
+            bill.recalculate_from_ledger()
+            db.session.commit()
+            
+        flash("Transaction deleted successfully!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting transaction: {str(e)}", "danger")
+        
+    return redirect(url_for('accounting.dashboard'))

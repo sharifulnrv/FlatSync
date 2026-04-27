@@ -257,5 +257,41 @@ class MonthlyBill(db.Model):
             
         return None
 
+    def recalculate_from_ledger(self):
+        """Recalculates paid_amount and penalty_amount from linked LedgerEntries."""
+        from models import LedgerEntry
+        
+        # 1. Recalculate Paid Amount (Credits to Account 3930 - Service Charge Receivable)
+        # We only count credits that are linked to this specific monthly bill
+        total_payments = 0.0
+        penalty_accrued = 0.0
+        
+        for journal in self.transactions:
+            for entry in journal.entries:
+                # Account 3930 is Service Charge Receivable
+                if entry.account.code == '3930':
+                    # A credit to receivable means a payment was received
+                    if entry.credit > 0:
+                        total_payments += entry.credit
+                
+                # Account 4110 is Late Penalty Income
+                # If we have debits to 4110, it means a penalty was 'accrued' for this bill
+                # Wait, penalties are DEBITED to Receivable (3930) and CREDITED to Income (4110)
+                if entry.account.code == '4110' and entry.credit > 0:
+                    penalty_accrued += entry.credit
+        
+        self.paid_amount = total_payments
+        self.penalty_amount = penalty_accrued
+        
+        # 2. Update Status
+        if self.balance_due <= 0:
+            self.status = 'paid'
+        elif self.paid_amount > 0:
+            self.status = 'partial'
+        else:
+            self.status = 'unpaid'
+            
+        return self.status
+
     unit = db.relationship('Unit', backref='monthly_bills')
     customer = db.relationship('Customer', backref='monthly_bills')
