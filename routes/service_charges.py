@@ -212,6 +212,67 @@ def apply_manual_penalty(bill_id):
     flash(f"Manual Penalty of ৳{penalty_amount:,.2f} applied to Unit {bill.unit.unit_number}.", "success")
     return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
 
+@service_charges_bp.route('/service-charges/delete-month/<int:year>/<int:month>', methods=['POST'])
+@login_required
+def delete_month(year, month):
+    try:
+        # 1. Find all bills for that month
+        bills = MonthlyBill.query.filter_by(year=year, month=month).all()
+        bill_ids = [b.id for b in bills]
+        
+        if not bills:
+            flash(f"No bills found for {date(year, month, 1).strftime('%B %Y')}.", "warning")
+            return redirect(url_for('service_charges.dashboard'))
+
+        # 2. Delete related Journal Entries and Ledger Entries
+        # This covers accruals, payments, and penalties linked to these bills
+        journals = JournalEntry.query.filter(JournalEntry.monthly_bill_id.in_(bill_ids)).all()
+        journal_ids = [j.id for j in journals]
+        
+        if journal_ids:
+            LedgerEntry.query.filter(LedgerEntry.journal_id.in_(journal_ids)).delete(synchronize_session=False)
+            JournalEntry.query.filter(JournalEntry.monthly_bill_id.in_(bill_ids)).delete(synchronize_session=False)
+        
+        # 3. Delete the bills
+        MonthlyBill.query.filter(MonthlyBill.id.in_(bill_ids)).delete(synchronize_session=False)
+        
+        db.session.commit()
+        flash(f"Successfully deleted the entire service charge batch for {date(year, month, 1).strftime('%B %Y')}.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting billing cycle: {str(e)}", "danger")
+        
+    return redirect(url_for('service_charges.dashboard'))
+
+@service_charges_bp.route('/service-charges/delete/<int:bill_id>', methods=['POST'])
+@login_required
+def delete_bill(bill_id):
+    bill = MonthlyBill.query.get_or_404(bill_id)
+    year, month = bill.year, bill.month
+    unit_number = bill.unit.unit_number
+    
+    try:
+        # 1. Identify all JournalEntry records linked to this bill
+        # bill.transactions is the backref from JournalEntry.monthly_bill
+        journals = JournalEntry.query.filter_by(monthly_bill_id=bill.id).all()
+        
+        for journal in journals:
+            # 2. Delete LedgerEntry records first to avoid foreign key violations
+            LedgerEntry.query.filter_by(journal_id=journal.id).delete()
+            # 3. Delete the JournalEntry
+            db.session.delete(journal)
+        
+        # 4. Delete the MonthlyBill itself
+        db.session.delete(bill)
+        
+        db.session.commit()
+        flash(f"Service charge for Unit {unit_number} and all related transactions have been deleted.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting service charge: {str(e)}", "danger")
+        
+    return redirect(url_for('service_charges.view_month', year=year, month=month))
+
 @service_charges_bp.route('/service-charges/bill/<int:bill_id>')
 def bill_details(bill_id):
     bill = MonthlyBill.query.get_or_404(bill_id)

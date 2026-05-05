@@ -121,31 +121,37 @@
         </h3>
         
         {% for year, month, total_bills, total_amount, total_penalty, paid_count in summary %}
-        <a href="{{ url_for('service_charges.view_month', year=year, month=month) }}" class="block bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:border-indigo-200 transition-all hover:translate-x-1 group">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-6">
-                    <div class="bg-indigo-50 text-indigo-600 p-4 rounded-2xl font-black text-center min-w-[80px]">
-                        <p class="text-[10px] uppercase opacity-70">{{ year }}</p>
-                        <p class="text-xl uppercase">{{ date(year, month, 1).strftime('%b') }}</p>
+        <div class="flex items-center space-x-3 group">
+            <a href="{{ url_for('service_charges.view_month', year=year, month=month) }}" class="flex-1 block bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:border-indigo-200 transition-all hover:translate-x-1">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-6">
+                        <div class="bg-indigo-50 text-indigo-600 p-4 rounded-2xl font-black text-center min-w-[80px]">
+                            <p class="text-[10px] uppercase opacity-70">{{ year }}</p>
+                            <p class="text-xl uppercase">{{ date(year, month, 1).strftime('%b') }}</p>
+                        </div>
+                        <div>
+                            <p class="text-lg font-black text-gray-800">{{ date(year, month, 1).strftime('%B %Y') }} Cycle</p>
+                            <div class="flex items-center space-x-4 mt-1">
+                                <span class="text-xs font-bold text-gray-400"><i class="fas fa-file-invoice mr-1"></i> {{ total_bills }} Units</span>
+                                <span class="text-xs font-bold text-emerald-600"><i class="fas fa-check-circle mr-1"></i> {{ paid_count }} Paid</span>
+                                <span class="text-xs font-bold text-rose-500"><i class="fas fa-clock mr-1"></i> {{ total_bills - paid_count }} Due</span>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-lg font-black text-gray-800">{{ date(year, month, 1).strftime('%B %Y') }} Cycle</p>
-                        <div class="flex items-center space-x-4 mt-1">
-                            <span class="text-xs font-bold text-gray-400"><i class="fas fa-file-invoice mr-1"></i> {{ total_bills }} Units</span>
-                            <span class="text-xs font-bold text-emerald-600"><i class="fas fa-check-circle mr-1"></i> {{ paid_count }} Paid</span>
-                            <span class="text-xs font-bold text-rose-500"><i class="fas fa-clock mr-1"></i> {{ total_bills - paid_count }} Due</span>
+                    <div class="text-right">
+                        <p class="text-xl font-black text-gray-800">৳ {{ "{:,.2f}".format(total_amount + (total_penalty or 0)) }}</p>
+                        <div class="w-32 h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                            <div class="h-full bg-indigo-500" style="width: {{ (paid_count / total_bills * 100) if total_bills > 0 else 0 }}%"></div>
                         </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <p class="text-xl font-black text-gray-800">৳ {{ "{:,.2f}".format(total_amount + (total_penalty or 0)) }}</p>
-                    <div class="w-48 h-2 bg-gray-100 rounded-full mt-2 overflow-hidden border border-gray-50">
-                        <div class="h-full bg-indigo-500" style="width: {{ (paid_count / total_bills * 100) if total_bills > 0 else 0 }}%"></div>
-                    </div>
-                    <p class="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-widest">{{ ((paid_count / total_bills) * 100)|round|int if total_bills > 0 else 0 }}% Collection Rate</p>
-                </div>
-            </div>
-        </a>
+            </a>
+            <form action="{{ url_for('service_charges.delete_month', year=year, month=month) }}" method="POST" onsubmit="return confirm('WARNING: Are you sure you want to delete the ENTIRE billing batch for {{ date(year, month, 1).strftime('%B %Y') }}? \n\nThis will remove all unit bills, payments, and penalties for this period. This action CANNOT be undone.')">
+                <button type="submit" class="w-14 h-14 bg-white border-2 border-gray-50 text-gray-300 hover:text-rose-600 hover:border-rose-100 hover:bg-rose-50 rounded-2xl flex items-center justify-center transition-all shadow-sm group-hover:shadow-md" title="Delete Entire Month">
+                    <i class="fas fa-trash-alt text-lg"></i>
+                </button>
+            </form>
+        </div>
         {% else %}
         <div class="bg-white p-12 rounded-3xl border-2 border-dashed border-gray-200 text-center">
             <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
