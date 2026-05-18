@@ -1,0 +1,12 @@
+{
+    "db_path": "",
+    "company_name": "Your Company Name",
+    "company_address": "Your Company Address",
+    "tg_bot_token": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
+    "tg_chat_id": "YOUR_TELEGRAM_CHAT_ID_HERE",
+    "smtp_email": "your_email@gmail.com",
+    "smtp_password": "your_app_password_here",
+    "admin_email": "admin_receiving_email@gmail.com",
+    "admin_username": "admin",
+    "admin_password": "admin"
+}

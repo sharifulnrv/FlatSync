@@ -166,3 +166,4 @@ real_estate.db
 .gemini/
 brain/
 tmp/
+config.json
