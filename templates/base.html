@@ -4,20 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Real Estate & Accounting{% endblock %}</title>
+    {% if not is_pdf %}
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    {% endif %}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
 </head>
 <body class="bg-gray-50 flex h-screen overflow-hidden">
 
     <style>
+        {% if is_pdf %}
+        @page {
+            size: a4 portrait;
+            margin: 1cm;
+        }
+        {% else %}
         @media print {
             @page {
                 size: auto;
                 margin: 5mm; /* Remove browser headers/footers */
             }
+        {% endif %}
 
             /* Hide EVERYTHING by default */
             .no-print, aside, nav, footer, button, .bg-slate-900, .fixed, #sidebar { 
@@ -54,6 +63,12 @@
             .shadow-sm, .shadow-xl, .shadow-2xl, .shadow-md { box-shadow: none !important; }
             .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 0 !important; border: 1px solid #eee !important; }
         }
+        {% if is_pdf %}
+        /* PDF specific fixes */
+        body { font-family: Helvetica, sans-serif; font-size: 10pt; }
+        .text-indigo-600 { color: #4f46e5; }
+        .text-slate-800 { color: #1e293b; }
+        {% endif %}
     </style>
 
     <!-- Sidebar Overlay (Mobile) -->

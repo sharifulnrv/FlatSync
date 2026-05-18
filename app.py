@@ -42,6 +42,9 @@ def create_app(config_class=Config):
         # Seed Admin
         seed_admin()
 
+    from utils.tg_backup import setup_tg_backup
+    setup_tg_backup(app, db)
+
     from flask_login import current_user
     @app.before_request
     def enforce_login():
@@ -109,7 +112,7 @@ def create_app(config_class=Config):
     return app
 
 def seed_coa():
-    if Account.query.first():
+    if db.session.query(Account).first():
         return
     
     # Comprehensive 70-Account COA (Core Categories)
@@ -161,25 +164,34 @@ def seed_coa():
         ('5900', 'Depreciation Expense', 'expense', False),
     ]
     for code, name, acc_type, summary in coa_data:
-        acc = Account(code=code, name=name, type=acc_type, is_summary=summary)
+        acc = Account()
+        acc.code = code
+        acc.name = name
+        acc.type = acc_type
+        acc.is_summary = summary
         db.session.add(acc)
     db.session.commit()
 
 def seed_admin():
     from werkzeug.security import generate_password_hash
-    if User.query.first():
+    from flask import current_app
+    if db.session.query(User).first():
         return
-    admin = User(
-        username='admin',
-        password_hash=generate_password_hash('admin'),
-        role='admin'
-    )
+        
+    username = current_app.config.get('ADMIN_USERNAME', 'admin')
+    password = current_app.config.get('ADMIN_PASSWORD', 'admin')
+    
+    admin = User()
+    admin.username = username
+    admin.password_hash = generate_password_hash(password)
+    admin.role = 'admin'
+    
     db.session.add(admin)
     db.session.commit()
 
 @login.user_loader
 def load_user(id):
-    return User.query.get(int(id))
+    return db.session.get(User, int(id))
 
 import threading
 import sys

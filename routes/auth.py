@@ -1,7 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from models import User, db
+import random
+from utils.email_sender import send_otp_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -18,10 +20,40 @@ def login():
             flash('Please check your login details and try again.', 'danger')
             return redirect(url_for('auth.login'))
 
-        login_user(user, remember=remember)
-        return redirect(url_for('main.index'))
+        # Generate and send OTP
+        otp = str(random.randint(100000, 999999))
+        session['otp'] = otp
+        session['pre_auth_user_id'] = user.id
+        session['remember_me'] = remember
+        
+        send_otp_email(otp)
+        
+        flash('Authorization code sent to the administrator.', 'info')
+        return redirect(url_for('auth.verify_otp'))
 
     return render_template('auth/login.html')
+
+@auth_bp.route('/verify-otp', methods=['GET', 'POST'])
+def verify_otp():
+    if 'pre_auth_user_id' not in session:
+        flash('Session expired or invalid.', 'danger')
+        return redirect(url_for('auth.login'))
+
+    if request.method == 'POST':
+        user_otp = request.form.get('otp')
+        if user_otp == session.get('otp'):
+            user = User.query.get(session.get('pre_auth_user_id'))
+            if user:
+                login_user(user, remember=session.get('remember_me', False))
+                # Clear session variables
+                session.pop('otp', None)
+                session.pop('pre_auth_user_id', None)
+                session.pop('remember_me', None)
+                return redirect(url_for('main.index'))
+        
+        flash('Invalid verification code.', 'danger')
+    
+    return render_template('auth/verify_otp.html')
 
 @auth_bp.route('/logout')
 @login_required

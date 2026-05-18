@@ -78,7 +78,21 @@ def get_app_config():
             config['db_path'] = folder_var.get()
             config['company_name'] = name_var.get()
             config['company_address'] = addr_var.get()
-            
+            # Preserve existing TG and Email tokens if present
+            if 'tg_bot_token' not in config:
+                config['tg_bot_token'] = _config_data.get('tg_bot_token', '')
+            if 'tg_chat_id' not in config:
+                config['tg_chat_id'] = _config_data.get('tg_chat_id', '')
+            if 'smtp_email' not in config:
+                config['smtp_email'] = _config_data.get('smtp_email', '')
+            if 'smtp_password' not in config:
+                config['smtp_password'] = _config_data.get('smtp_password', '')
+            if 'admin_email' not in config:
+                config['admin_email'] = _config_data.get('admin_email', '')
+            if 'admin_username' not in config:
+                config['admin_username'] = _config_data.get('admin_username', 'admin')
+            if 'admin_password' not in config:
+                config['admin_password'] = _config_data.get('admin_password', 'admin')
             if not os.path.exists(config['db_path']):
                 os.makedirs(config['db_path'])
             
@@ -103,6 +117,16 @@ class Config:
     
     COMPANY_NAME = _config_data.get('company_name', 'Assurance Sultan Legacy Flat Owners Association')
     COMPANY_ADDRESS = _config_data.get('company_address', '23/4, Katasur, Ser-E Bangla Road, Mohammadpur, Dhaka')
+    
+    TG_BOT_TOKEN = _config_data.get('tg_bot_token', '')
+    TG_CHAT_ID = _config_data.get('tg_chat_id', '')
+    
+    SMTP_EMAIL = _config_data.get('smtp_email', '')
+    SMTP_PASSWORD = _config_data.get('smtp_password', '')
+    ADMIN_EMAIL = _config_data.get('admin_email', '')
+    
+    ADMIN_USERNAME = _config_data.get('admin_username', 'admin')
+    ADMIN_PASSWORD = _config_data.get('admin_password', 'admin')
     
     # Ensure the directory exists
     if not os.path.exists(DB_FOLDER):
