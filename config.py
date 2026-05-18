@@ -93,6 +93,8 @@ def get_app_config():
                 config['admin_username'] = _config_data.get('admin_username', 'admin')
             if 'admin_password' not in config:
                 config['admin_password'] = _config_data.get('admin_password', 'admin')
+            if 'testotp' not in config:
+                config['testotp'] = _config_data.get('testotp', False)
             if not os.path.exists(config['db_path']):
                 os.makedirs(config['db_path'])
             
@@ -127,6 +129,8 @@ class Config:
     
     ADMIN_USERNAME = _config_data.get('admin_username', 'admin')
     ADMIN_PASSWORD = _config_data.get('admin_password', 'admin')
+    
+    TESTOTP = _config_data.get('testotp', False)
     
     # Ensure the directory exists
     if not os.path.exists(DB_FOLDER):

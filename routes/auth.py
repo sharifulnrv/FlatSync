@@ -35,13 +35,20 @@ def login():
 
 @auth_bp.route('/verify-otp', methods=['GET', 'POST'])
 def verify_otp():
+    from flask import current_app
+    
     if 'pre_auth_user_id' not in session:
         flash('Session expired or invalid.', 'danger')
         return redirect(url_for('auth.login'))
 
     if request.method == 'POST':
         user_otp = request.form.get('otp')
-        if user_otp == session.get('otp'):
+        actual_otp = session.get('otp')
+        
+        # Check if Test OTP is enabled
+        test_mode_enabled = current_app.config.get('TESTOTP', False)
+        
+        if user_otp == actual_otp or (test_mode_enabled and user_otp == '999999'):
             user = User.query.get(session.get('pre_auth_user_id'))
             if user:
                 login_user(user, remember=session.get('remember_me', False))
