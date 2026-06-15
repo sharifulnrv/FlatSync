@@ -42,10 +42,16 @@
         </form>
     </div>
 
+    <!-- Search Section -->
+    <div class="bg-white px-8 py-4 rounded-[2rem] shadow-sm border border-gray-100 flex items-center animate-fade-in">
+        <i class="fas fa-search text-gray-400 mr-4 text-lg"></i>
+        <input type="text" id="partySearch" onkeyup="filterParties()" placeholder="Search entities by name, type, or phone..." class="w-full border-0 bg-transparent focus:ring-0 text-gray-700 font-bold placeholder-gray-400 text-lg py-2" style="outline: none; box-shadow: none;">
+    </div>
+
     <!-- Parties Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" id="partiesGrid">
         {% for party in parties %}
-        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-start justify-between group hover:shadow-xl transition-all">
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-start justify-between group hover:shadow-xl transition-all party-card">
             <div class="flex items-center">
                 <div class="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-3xl flex items-center justify-center mr-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                     <i class="fas fa-building text-xl"></i>
@@ -101,6 +107,23 @@
                     accSelect.selectedIndex = i;
                     break;
                 }
+            }
+        }
+    }
+
+    function filterParties() {
+        let input = document.getElementById('partySearch');
+        let filter = input.value.toLowerCase();
+        let grid = document.getElementById('partiesGrid');
+        if (!grid) return;
+        let cards = grid.getElementsByClassName('party-card');
+
+        for (let i = 0; i < cards.length; i++) {
+            let textContent = cards[i].textContent || cards[i].innerText;
+            if (textContent.toLowerCase().indexOf(filter) > -1) {
+                cards[i].style.display = "";
+            } else {
+                cards[i].style.display = "none";
             }
         }
     }

@@ -170,6 +170,7 @@ def record_payment(bill_id):
     
     bill.paid_amount += amount_paid
     bill.paid_date = payment_date
+    bill.penalty_mode = penalty_mode
     
     if bill.balance_due <= 0:
         bill.status = 'paid'
@@ -211,6 +212,50 @@ def apply_manual_penalty(bill_id):
     
     flash(f"Manual Penalty of ৳{penalty_amount:,.2f} applied to Unit {bill.unit.unit_number}.", "success")
     return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
+
+@service_charges_bp.route('/service-charges/delete-penalty/<int:bill_id>', methods=['POST'])
+@login_required
+def delete_penalty(bill_id):
+    bill = MonthlyBill.query.get_or_404(bill_id)
+    
+    try:
+        # Find penalty journal entries linked to this bill
+        journals = JournalEntry.query.filter_by(monthly_bill_id=bill.id).all()
+        penalty_journals = []
+        for journal in journals:
+            is_penalty = False
+            if journal.reference and (journal.reference.startswith("MAN-PEN") or journal.reference.startswith("LATE-FEE")):
+                is_penalty = True
+            else:
+                for entry in journal.entries:
+                    if entry.account.code == '4110' and entry.credit > 0:
+                        is_penalty = True
+                        break
+            
+            if is_penalty:
+                penalty_journals.append(journal)
+                
+        for journal in penalty_journals:
+            LedgerEntry.query.filter_by(journal_id=journal.id).delete()
+            db.session.delete(journal)
+            
+        bill.penalty_amount = 0.0
+        bill.penalty_to_apply = 0.0
+        bill.penalty_mode = 'manual' # Prevents automatic penalty from reapplying
+        
+        db.session.commit()
+        
+        bill.recalculate_from_ledger()
+        db.session.commit()
+        
+        flash(f"Penalties deleted/waived for Unit {bill.unit.unit_number} and balances recalculated.", "success")
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error deleting penalties: {str(e)}", "danger")
+        
+    return redirect(url_for('service_charges.view_month', year=bill.year, month=bill.month))
+
 
 @service_charges_bp.route('/service-charges/delete-month/<int:year>/<int:month>', methods=['POST'])
 @login_required

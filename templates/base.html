@@ -9,6 +9,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     {% endif %}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
 </head>
@@ -290,34 +292,25 @@
             setTimeout(() => document.addEventListener('click', closeSearch), 10);
         });
 
-        // Universal search filter for select elements
+        // Universal search filter for select elements using TomSelect
         function initSearchableSelects() {
-            const searchableSelects = document.querySelectorAll('[data-searchable]');
-            searchableSelects.forEach(select => {
-                // Create search input
-                const searchInput = document.createElement('input');
-                searchInput.type = 'text';
-                searchInput.placeholder = 'Search...';
-                searchInput.className = 'w-full mb-2 px-4 py-2 text-xs bg-gray-50 border-0 rounded-xl focus:ring-1 focus:ring-indigo-500 font-medium';
-                
-                // Insert before select
-                select.parentNode.insertBefore(searchInput, select);
-                
-                // Add filter logic
-                searchInput.addEventListener('keyup', function() {
-                    const filter = this.value.toUpperCase();
-                    const options = select.options;
-                    for (let i = 0; i < options.length; i++) {
-                        const txtValue = options[i].text;
-                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                            options[i].style.display = "";
-                            options[i].disabled = false;
-                        } else {
-                            options[i].style.display = "none";
-                            options[i].disabled = true;
+            window.tomSelectInstances = {};
+            document.querySelectorAll('[data-searchable]').forEach(select => {
+                const ts = new TomSelect(select, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    },
+                    controlClass: 'ts-control w-full px-5 py-4 bg-gray-50 border-0 rounded-2xl font-bold focus:ring-2 focus:ring-indigo-500',
+                    dropdownClass: 'ts-dropdown bg-white border border-gray-100 shadow-xl rounded-2xl mt-1 font-medium',
+                    render: {
+                        no_results: function(data, escape) {
+                            return '<div class="no-results px-4 py-2 text-gray-500">No results found</div>';
                         }
                     }
                 });
+                window.tomSelectInstances[select.id] = ts;
             });
         }
         

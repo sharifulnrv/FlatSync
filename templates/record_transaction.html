@@ -244,6 +244,9 @@
                 for (let i=0; i<drSelect.options.length; i++) {
                     if (drSelect.options[i].value === defAcc) {
                         drSelect.selectedIndex = i;
+                        if (window.tomSelectInstances && window.tomSelectInstances['dr_account']) {
+                            window.tomSelectInstances['dr_account'].setValue(defAcc);
+                        }
                         break;
                     }
                 }
@@ -252,6 +255,9 @@
                 for (let i=0; i<crSelect.options.length; i++) {
                     if (crSelect.options[i].value === defAcc) {
                         crSelect.selectedIndex = i;
+                        if (window.tomSelectInstances && window.tomSelectInstances['cr_account']) {
+                            window.tomSelectInstances['cr_account'].setValue(defAcc);
+                        }
                         break;
                     }
                 }
@@ -322,13 +328,29 @@
                 }
             }
             
-            if (prefIdx !== -1) select.selectedIndex = prefIdx;
-            else if (firstValid !== -1) select.selectedIndex = firstValid;
+            if (prefIdx !== -1) {
+                select.selectedIndex = prefIdx;
+                if (window.tomSelectInstances && window.tomSelectInstances[select.id]) {
+                    window.tomSelectInstances[select.id].setValue(options[prefIdx].value);
+                }
+            }
+            else if (firstValid !== -1) {
+                select.selectedIndex = firstValid;
+                if (window.tomSelectInstances && window.tomSelectInstances[select.id]) {
+                    window.tomSelectInstances[select.id].setValue(options[firstValid].value);
+                }
+            }
         }
 
         if (txType !== 'adj') {
             setBestMatch(drSelect, prefs.dr);
             setBestMatch(crSelect, prefs.cr);
+        }
+        
+        // Sync TomSelect if available
+        if (window.tomSelectInstances) {
+            if (window.tomSelectInstances['dr_account']) window.tomSelectInstances['dr_account'].sync();
+            if (window.tomSelectInstances['cr_account']) window.tomSelectInstances['cr_account'].sync();
         }
         
         updatePrompts();
