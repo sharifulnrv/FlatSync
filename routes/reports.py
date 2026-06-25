@@ -195,25 +195,29 @@ def daily_cash_report():
 @reports_bp.route('/reports/monthly-cash')
 def monthly_cash_report():
     from_date, to_date, from_date_str, to_date_str = get_dates()
-    account_id = request.args.get('account_id', type=int)
+    account_ids = request.args.getlist('account_ids', type=int)
     
     cash_accounts = Account.query.filter(Account.code.like('31%')).order_by(Account.code).all()
     
     # Calculate opening balance
     q_initial = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.code.like('31%'))
     q_initial = q_initial.filter(LedgerEntry.event_id == None)
-    if account_id:
-        q_initial = q_initial.filter(LedgerEntry.account_id == account_id)
+    if account_ids:
+        q_initial = q_initial.filter(LedgerEntry.account_id.in_(account_ids))
     if from_date:
         q_initial = q_initial.filter(JournalEntry.date < from_date)
         
-    init_debit, init_credit = q_initial.first()
+    initial_res = q_initial.first()
+    if initial_res:
+        init_debit, init_credit = initial_res
+    else:
+        init_debit, init_credit = 0, 0
     opening_balance = (init_debit or 0) - (init_credit or 0)
     
     q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
     q_details = q_details.filter(LedgerEntry.event_id == None)
-    if account_id:
-        q_details = q_details.filter(LedgerEntry.account_id == account_id)
+    if account_ids:
+        q_details = q_details.filter(LedgerEntry.account_id.in_(account_ids))
     q_details = q_details.filter(JournalEntry.date >= from_date)
     q_details = q_details.filter(JournalEntry.date <= to_date)
     
@@ -250,7 +254,7 @@ def monthly_cash_report():
         
     monthly_stats.reverse()
     
-    return render_template('monthly_cash_report.html', stats=monthly_stats, from_date=from_date_str, to_date=to_date_str, cash_accounts=cash_accounts, selected_account=account_id)
+    return render_template('monthly_cash_report.html', stats=monthly_stats, from_date=from_date_str, to_date=to_date_str, cash_accounts=cash_accounts, selected_accounts=account_ids)
 
 @reports_bp.route('/reports/ledger')
 def ledger_report():
@@ -992,22 +996,26 @@ def export_daily_cash():
 @reports_bp.route('/reports/export/monthly-cash')
 def export_monthly_cash():
     from_date, to_date, from_date_str, to_date_str = get_dates()
-    account_id = request.args.get('account_id', type=int)
+    account_ids = request.args.getlist('account_ids', type=int)
     
     q_initial = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.code.like('31%'))
     q_initial = q_initial.filter(LedgerEntry.event_id == None)
-    if account_id:
-        q_initial = q_initial.filter(LedgerEntry.account_id == account_id)
+    if account_ids:
+        q_initial = q_initial.filter(LedgerEntry.account_id.in_(account_ids))
     if from_date:
         q_initial = q_initial.filter(JournalEntry.date < from_date)
         
-    init_debit, init_credit = q_initial.first()
+    initial_res = q_initial.first()
+    if initial_res:
+        init_debit, init_credit = initial_res
+    else:
+        init_debit, init_credit = 0, 0
     opening_balance = (init_debit or 0) - (init_credit or 0)
     
     q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
     q_details = q_details.filter(LedgerEntry.event_id == None)
-    if account_id:
-        q_details = q_details.filter(LedgerEntry.account_id == account_id)
+    if account_ids:
+        q_details = q_details.filter(LedgerEntry.account_id.in_(account_ids))
     q_details = q_details.filter(JournalEntry.date >= from_date)
     q_details = q_details.filter(JournalEntry.date <= to_date)
     
@@ -1052,10 +1060,13 @@ def export_monthly_cash():
     ws.append([company_address])
     
     report_title = "MONTHLY CASH FLOW REPORT"
-    if account_id:
-        acc = Account.query.get(account_id)
-        if acc:
-            report_title += f" - {acc.name}"
+    if account_ids:
+        if len(account_ids) == 1:
+            acc = Account.query.get(account_ids[0])
+            if acc:
+                report_title += f" - {acc.name}"
+        else:
+            report_title += " - Multiple Accounts"
             
     ws.append([report_title])
     ws.append([f"Audit Period: {from_date_str} to {to_date_str}"])

@@ -10,10 +10,10 @@
         <form action="{{ url_for('reports.monthly_cash_report') }}" method="GET" class="flex flex-wrap items-center gap-4">
             <div class="flex items-center space-x-2">
                 <span class="text-xs font-black text-gray-400 uppercase">Account</span>
-                <select name="account_id" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
-                    <option value="">All Cash/Bank Accounts</option>
+                <select name="account_ids" multiple class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 min-w-[200px]">
+                    <option value="" {% if not selected_accounts %}selected{% endif %}>All Cash/Bank Accounts</option>
                     {% for acc in cash_accounts %}
-                    <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+                    <option value="{{ acc.id }}" {% if acc.id in selected_accounts %}selected{% endif %}>{{ acc.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -26,10 +26,10 @@
                 <input type="date" name="to_date" value="{{ to_date or '' }}" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
             </div>
             <button type="submit" class="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700">Filter Data</button>
-            <a href="{{ url_for('reports.export_monthly_cash', from_date=from_date, to_date=to_date, account_id=selected_account) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center">
+            <a href="{{ url_for('reports.export_monthly_cash', from_date=from_date, to_date=to_date, account_ids=selected_accounts) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center">
                 <i class="fas fa-file-excel mr-2"></i> Export Excel
             </a>
-            {% if from_date or to_date or selected_account %}
+            {% if from_date or to_date or selected_accounts %}
             <a href="{{ url_for('reports.monthly_cash_report') }}" class="text-gray-400 hover:text-gray-600 ml-2"><i class="fas fa-times-circle"></i></a>
             {% endif %}
         </form>
