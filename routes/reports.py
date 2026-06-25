@@ -195,13 +195,30 @@ def daily_cash_report():
 @reports_bp.route('/reports/monthly-cash')
 def monthly_cash_report():
     from_date, to_date, from_date_str, to_date_str = get_dates()
+    account_id = request.args.get('account_id', type=int)
+    
+    cash_accounts = Account.query.filter(Account.code.like('31%')).order_by(Account.code).all()
+    
+    # Calculate opening balance
+    q_initial = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.code.like('31%'))
+    q_initial = q_initial.filter(LedgerEntry.event_id == None)
+    if account_id:
+        q_initial = q_initial.filter(LedgerEntry.account_id == account_id)
+    if from_date:
+        q_initial = q_initial.filter(JournalEntry.date < from_date)
+        
+    init_debit, init_credit = q_initial.first()
+    opening_balance = (init_debit or 0) - (init_credit or 0)
     
     q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
     q_details = q_details.filter(LedgerEntry.event_id == None)
+    if account_id:
+        q_details = q_details.filter(LedgerEntry.account_id == account_id)
     q_details = q_details.filter(JournalEntry.date >= from_date)
     q_details = q_details.filter(JournalEntry.date <= to_date)
     
-    entries = q_details.order_by(JournalEntry.date.desc()).all()
+    # Sort ascending to calculate running balance
+    entries = q_details.order_by(JournalEntry.date.asc()).all()
     
     monthly_stats_dict = {}
     for entry in entries:
@@ -222,9 +239,18 @@ def monthly_cash_report():
         monthly_stats_dict[month_key]['total_out'] += outflow
         
     monthly_stats = list(monthly_stats_dict.values())
-    monthly_stats.sort(key=lambda x: x['sort_key'], reverse=True)
+    monthly_stats.sort(key=lambda x: x['sort_key'])
     
-    return render_template('monthly_cash_report.html', stats=monthly_stats, from_date=from_date_str, to_date=to_date_str)
+    current_balance = opening_balance
+    for item in monthly_stats:
+        item['opening_balance'] = current_balance
+        net = item['total_in'] - item['total_out']
+        item['closing_balance'] = current_balance + net
+        current_balance = item['closing_balance']
+        
+    monthly_stats.reverse()
+    
+    return render_template('monthly_cash_report.html', stats=monthly_stats, from_date=from_date_str, to_date=to_date_str, cash_accounts=cash_accounts, selected_account=account_id)
 
 @reports_bp.route('/reports/ledger')
 def ledger_report():
@@ -966,13 +992,26 @@ def export_daily_cash():
 @reports_bp.route('/reports/export/monthly-cash')
 def export_monthly_cash():
     from_date, to_date, from_date_str, to_date_str = get_dates()
+    account_id = request.args.get('account_id', type=int)
+    
+    q_initial = db.session.query(func.sum(LedgerEntry.debit), func.sum(LedgerEntry.credit)).join(JournalEntry).join(Account).filter(Account.code.like('31%'))
+    q_initial = q_initial.filter(LedgerEntry.event_id == None)
+    if account_id:
+        q_initial = q_initial.filter(LedgerEntry.account_id == account_id)
+    if from_date:
+        q_initial = q_initial.filter(JournalEntry.date < from_date)
+        
+    init_debit, init_credit = q_initial.first()
+    opening_balance = (init_debit or 0) - (init_credit or 0)
     
     q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
     q_details = q_details.filter(LedgerEntry.event_id == None)
+    if account_id:
+        q_details = q_details.filter(LedgerEntry.account_id == account_id)
     q_details = q_details.filter(JournalEntry.date >= from_date)
     q_details = q_details.filter(JournalEntry.date <= to_date)
     
-    entries = q_details.order_by(JournalEntry.date.desc()).all()
+    entries = q_details.order_by(JournalEntry.date.asc()).all()
     
     monthly_stats_dict = {}
     for entry in entries:
@@ -992,7 +1031,16 @@ def export_monthly_cash():
         monthly_stats_dict[month_key]['total_out'] += outflow
         
     monthly_stats = list(monthly_stats_dict.values())
-    monthly_stats.sort(key=lambda x: x['sort_key'], reverse=True)
+    monthly_stats.sort(key=lambda x: x['sort_key'])
+    
+    current_balance = opening_balance
+    for item in monthly_stats:
+        item['opening_balance'] = current_balance
+        net = item['total_in'] - item['total_out']
+        item['closing_balance'] = current_balance + net
+        current_balance = item['closing_balance']
+        
+    monthly_stats.reverse()
     
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -1002,11 +1050,18 @@ def export_monthly_cash():
     company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
     ws.append([company_name])
     ws.append([company_address])
-    ws.append(["MONTHLY CASH FLOW REPORT"])
+    
+    report_title = "MONTHLY CASH FLOW REPORT"
+    if account_id:
+        acc = Account.query.get(account_id)
+        if acc:
+            report_title += f" - {acc.name}"
+            
+    ws.append([report_title])
     ws.append([f"Audit Period: {from_date_str} to {to_date_str}"])
     ws.append([])
     
-    last_col = "D"
+    last_col = "F"
     for row_idx in [1, 2, 3, 4]:
         ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
         cell = ws.cell(row=row_idx, column=1)
@@ -1015,11 +1070,11 @@ def export_monthly_cash():
         elif row_idx == 2: cell.font = ADDR_FONT
         else: cell.font = REPORT_TITLE_FONT
     
-    ws.append(["Month", "Inflow (+)", "Outflow (-)", "Net"])
+    ws.append(["Month", "Opening Balance", "Inflow (+)", "Outflow (-)", "Net Flow", "Closing Balance"])
     
     for item in monthly_stats:
         net = item['total_in'] - item['total_out']
-        ws.append([item['display_month'], item['total_in'], item['total_out'], net])
+        ws.append([item['display_month'], item['opening_balance'], item['total_in'], item['total_out'], net, item['closing_balance']])
         
     try:
         autosize_workbook(ws)
