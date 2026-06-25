@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block header %}Monthly Cash Flow Report{% endblock %}
+
+{% block content %}
+<div class="space-y-12">
+    <!-- Filter Bar -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
+        <h2 class="text-xl font-bold text-gray-800">Monthly Liquidity Filter</h2>
+        <form action="{{ url_for('reports.monthly_cash_report') }}" method="GET" class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-black text-gray-400 uppercase">From</span>
+                <input type="date" name="from_date" value="{{ from_date or '' }}" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-black text-gray-400 uppercase">To</span>
+                <input type="date" name="to_date" value="{{ to_date or '' }}" class="px-4 py-2 bg-gray-50 border-0 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button type="submit" class="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700">Filter Data</button>
+            <a href="{{ url_for('reports.export_monthly_cash', from_date=from_date, to_date=to_date) }}" onclick="showNotification('Preparing your download...', 'info')" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center">
+                <i class="fas fa-file-excel mr-2"></i> Export Excel
+            </a>
+            {% if from_date or to_date %}
+            <a href="{{ url_for('reports.monthly_cash_report') }}" class="text-gray-400 hover:text-gray-600 ml-2"><i class="fas fa-times-circle"></i></a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Monthly Transaction Summary -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/20">
+            <h2 class="text-xl font-bold text-gray-800">Monthly Inflow & Outflow</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50/50 text-[10px] text-gray-400 uppercase font-black tracking-widest">
+                    <tr>
+                        <th class="px-8 py-5">Month</th>
+                        <th class="px-8 py-5 text-emerald-600">Total Inflow (Debits)</th>
+                        <th class="px-8 py-5 text-rose-600">Total Outflow (Credits)</th>
+                        <th class="px-8 py-5">Net Flow</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in stats %}
+                    <tr class="hover:bg-gray-50/20 transition-colors">
+                        <td class="px-8 py-6">
+                            <span class="font-black text-gray-700">{{ item.display_month }}</span>
+                        </td>
+                        <td class="px-8 py-6 font-mono text-emerald-600 font-bold">
+                            + ৳ {{ "{:,.2f}".format(item.total_in) }}
+                        </td>
+                        <td class="px-8 py-6 font-mono text-rose-600 font-bold">
+                            - ৳ {{ "{:,.2f}".format(item.total_out) }}
+                        </td>
+                        <td class="px-8 py-6">
+                            {% set net = item.total_in - item.total_out %}
+                            <span class="font-mono font-black text-lg {{ 'text-emerald-700' if net >= 0 else 'text-rose-700' }}">
+                                {{ '+' if net >= 0 else '' }} ৳ {{ "{:,.2f}".format(net) }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-8 py-6 text-center text-gray-500 font-bold">No data available for the selected period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

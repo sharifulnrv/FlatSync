@@ -192,6 +192,40 @@ def daily_cash_report():
     
     return render_template('daily_cash_report.html', stats=daily_stats, transactions=transactions, from_date=from_date_str, to_date=to_date_str, weekly_net=weekly_net)
 
+@reports_bp.route('/reports/monthly-cash')
+def monthly_cash_report():
+    from_date, to_date, from_date_str, to_date_str = get_dates()
+    
+    q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
+    q_details = q_details.filter(LedgerEntry.event_id == None)
+    q_details = q_details.filter(JournalEntry.date >= from_date)
+    q_details = q_details.filter(JournalEntry.date <= to_date)
+    
+    entries = q_details.order_by(JournalEntry.date.desc()).all()
+    
+    monthly_stats_dict = {}
+    for entry in entries:
+        month_key = entry.parent.date.strftime('%Y-%m')
+        if month_key not in monthly_stats_dict:
+            monthly_stats_dict[month_key] = {
+                'month_key': month_key,
+                'display_month': entry.parent.date.strftime('%B %Y'),
+                'total_in': 0.0,
+                'total_out': 0.0,
+                'sort_key': entry.parent.date.replace(day=1)
+            }
+        
+        inflow = entry.debit if entry.debit > 0 else 0
+        outflow = entry.credit if entry.credit > 0 else 0
+        
+        monthly_stats_dict[month_key]['total_in'] += inflow
+        monthly_stats_dict[month_key]['total_out'] += outflow
+        
+    monthly_stats = list(monthly_stats_dict.values())
+    monthly_stats.sort(key=lambda x: x['sort_key'], reverse=True)
+    
+    return render_template('monthly_cash_report.html', stats=monthly_stats, from_date=from_date_str, to_date=to_date_str)
+
 @reports_bp.route('/reports/ledger')
 def ledger_report():
     account_id = request.args.get('account_id', type=int)
@@ -926,6 +960,77 @@ def export_daily_cash():
     except Exception as e:
         with open("error.log", "a") as f:
             f.write(f"\n--- DAILY CASH EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
+            traceback.print_exc(file=f)
+        raise e
+
+@reports_bp.route('/reports/export/monthly-cash')
+def export_monthly_cash():
+    from_date, to_date, from_date_str, to_date_str = get_dates()
+    
+    q_details = db.session.query(LedgerEntry).join(JournalEntry).join(Account, LedgerEntry.account_id == Account.id).filter(Account.code.like('31%'))
+    q_details = q_details.filter(LedgerEntry.event_id == None)
+    q_details = q_details.filter(JournalEntry.date >= from_date)
+    q_details = q_details.filter(JournalEntry.date <= to_date)
+    
+    entries = q_details.order_by(JournalEntry.date.desc()).all()
+    
+    monthly_stats_dict = {}
+    for entry in entries:
+        month_key = entry.parent.date.strftime('%Y-%m')
+        if month_key not in monthly_stats_dict:
+            monthly_stats_dict[month_key] = {
+                'display_month': entry.parent.date.strftime('%B %Y'),
+                'total_in': 0.0,
+                'total_out': 0.0,
+                'sort_key': entry.parent.date.replace(day=1)
+            }
+        
+        inflow = entry.debit if entry.debit > 0 else 0
+        outflow = entry.credit if entry.credit > 0 else 0
+        
+        monthly_stats_dict[month_key]['total_in'] += inflow
+        monthly_stats_dict[month_key]['total_out'] += outflow
+        
+    monthly_stats = list(monthly_stats_dict.values())
+    monthly_stats.sort(key=lambda x: x['sort_key'], reverse=True)
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Monthly Cash"
+    
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+    ws.append([company_name])
+    ws.append([company_address])
+    ws.append(["MONTHLY CASH FLOW REPORT"])
+    ws.append([f"Audit Period: {from_date_str} to {to_date_str}"])
+    ws.append([])
+    
+    last_col = "D"
+    for row_idx in [1, 2, 3, 4]:
+        ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
+        cell = ws.cell(row=row_idx, column=1)
+        cell.alignment = Alignment(horizontal="center")
+        if row_idx == 1: cell.font = TITLE_FONT
+        elif row_idx == 2: cell.font = ADDR_FONT
+        else: cell.font = REPORT_TITLE_FONT
+    
+    ws.append(["Month", "Inflow (+)", "Outflow (-)", "Net"])
+    
+    for item in monthly_stats:
+        net = item['total_in'] - item['total_out']
+        ws.append([item['display_month'], item['total_in'], item['total_out'], net])
+        
+    try:
+        autosize_workbook(ws)
+            
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f"Monthly_Cash_{datetime.now().strftime('%Y-%m-%d')}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        with open("error.log", "a") as f:
+            f.write(f"\n--- MONTHLY CASH EXPORT ERROR (SAVE) AT {datetime.now()} ---\n")
             traceback.print_exc(file=f)
         raise e
 
