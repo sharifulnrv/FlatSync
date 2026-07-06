@@ -64,7 +64,9 @@
             /* Utility Fixes */
             .shadow-sm, .shadow-xl, .shadow-2xl, .shadow-md { box-shadow: none !important; }
             .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 0 !important; border: 1px solid #eee !important; }
+        {% if not is_pdf %}
         }
+        {% endif %}
         {% if is_pdf %}
         /* PDF specific fixes */
         body { font-family: Helvetica, sans-serif; font-size: 10pt; }

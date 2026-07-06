@@ -31,11 +31,16 @@
             letter-spacing: 1px;
             margin: 0;
         }
+        .company-address {
+            font-size: 9pt;
+            color: #64748b;
+            margin-top: 2px;
+        }
         .report-title {
             font-size: 12pt;
             font-weight: bold;
             color: #475569;
-            margin-top: 2px;
+            margin-top: 4px;
         }
         table {
             width: 100%;
@@ -134,13 +139,21 @@
     </style>
 </head>
 <body>
-    <!-- Content strictly managed by child templates -->
-
+    <!-- Company Header (auto-injected on all report PDFs) -->
+    {% if config is defined and config.COMPANY_NAME %}
+    <div class="header">
+        <p class="company-name">{{ config.COMPANY_NAME }}</p>
+        {% if config.COMPANY_ADDRESS %}
+        <p class="company-address">{{ config.COMPANY_ADDRESS }}</p>
+        {% endif %}
+        <p class="report-title">{% block pdf_header %}Financial Report{% endblock %}</p>
+        <p style="font-size:8pt; color:#94a3b8; margin-top:2px;">Generated: {{ now_date }}</p>
+    </div>
+    {% endif %}
 
     <div class="content">
         {% block content %}{% endblock %}
     </div>
-
 
 </body>
 </html>

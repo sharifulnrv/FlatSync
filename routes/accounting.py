@@ -703,3 +703,185 @@ def delete_transaction(journal_id):
         flash(f"Error deleting transaction: {str(e)}", "danger")
         
     return redirect(url_for('accounting.dashboard'))
+
+
+# ── Monthly Bill (Utility Expenses) ──────────────────────────────────────────
+
+MONTHLY_EXPENSE_TYPES = [
+    {'label': 'Electricity Bill',      'account': '5200', 'icon': 'bolt'},
+    {'label': 'Gas Bill',              'account': '5220', 'icon': 'fire'},
+    {'label': 'Water / Sewerage',      'account': '5210', 'icon': 'tint'},
+    {'label': 'Generator Fuel',        'account': '5500', 'icon': 'gas-pump'},
+    {'label': 'Security Services',     'account': '5300', 'icon': 'shield-alt'},
+    {'label': 'Cleaning Services',     'account': '5400', 'icon': 'broom'},
+    {'label': 'Lift Maintenance',      'account': '5600', 'icon': 'wrench'},
+    {'label': 'Management Salary',     'account': '5100', 'icon': 'user-tie'},
+    {'label': 'Printing & Stationery', 'account': '5700', 'icon': 'print'},
+    {'label': 'Other Expense',         'account': '5900', 'icon': 'receipt'},
+]
+
+MONTH_NAMES = ['January','February','March','April','May','June',
+               'July','August','September','October','November','December']
+
+
+@accounting_bp.route('/accounting/monthly-bill', methods=['GET', 'POST'])
+def monthly_bill():
+    """
+    STEP 1 – Record a monthly utility bill.
+
+    Journal Entry:
+        Expense Account   Dr   (electricity / gas / water etc.)
+        Accounts Payable  Cr   (we owe this amount – tagged to billing month)
+    """
+    from models import Party
+
+    if request.method == 'POST':
+        expense_account = request.form.get('expense_account')
+        payable_account = request.form.get('payable_account') or '2100'
+        bill_month      = request.form.get('bill_month')       # "1" – "12"
+        bill_year       = request.form.get('bill_year')
+        amount          = float(request.form.get('amount') or 0)
+        description     = request.form.get('description', '').strip()
+        party_id        = request.form.get('party_id') or None
+        date_str        = request.form.get('date')
+        voucher_number  = request.form.get('voucher_number', '').strip() or None
+
+        if amount <= 0 or not expense_account or not bill_month or not bill_year:
+            flash('Amount, Expense Type, and Billing Month/Year are required.', 'error')
+            return redirect(url_for('accounting.monthly_bill'))
+
+        month_name = MONTH_NAMES[int(bill_month) - 1]
+
+        if not description:
+            matched = next((e for e in MONTHLY_EXPENSE_TYPES if e['account'] == expense_account), None)
+            expense_label = matched['label'] if matched else 'Monthly Expense'
+            description = f"{expense_label} – {month_name} {bill_year}"
+        else:
+            description = f"{description} ({month_name} {bill_year})"
+
+        txn_date = datetime.strptime(date_str, '%Y-%m-%d') if date_str else datetime.now()
+
+        # Expense Account Dr  /  Accounts Payable Cr
+        items = [
+            {'account_code': expense_account, 'debit': amount, 'credit': 0,      'party_id': party_id},
+            {'account_code': payable_account,  'debit': 0,      'credit': amount, 'party_id': party_id},
+        ]
+        journal = record_journal_entry(description, items, reference='MBILL', date=txn_date)
+        # Save optional voucher number
+        if voucher_number:
+            journal.voucher_number = voucher_number
+            db.session.commit()
+        flash(f'Bill recorded (Entry #{journal.id}). Use “Mark as Paid” when you settle it.', 'success')
+        return redirect(url_for('accounting.monthly_bill'))
+
+    # ── GET ──────────────────────────────────────────────────────────────────
+    suppliers        = Party.query.all()
+    expense_accounts = Account.query.filter(Account.type == 'expense',   Account.is_summary == False).order_by(Account.code).all()
+    payable_accounts = Account.query.filter(Account.type == 'liability', Account.is_summary == False).order_by(Account.code).all()
+    cash_accounts    = Account.query.filter(Account.code.like('31%'),    Account.is_summary == False).order_by(Account.code).all()
+
+    bills_data   = _build_bills_data()
+    current_year  = datetime.now().year
+    current_month = datetime.now().month
+    today_date    = datetime.now().strftime('%Y-%m-%d')
+
+    return render_template('accounting/monthly_bill.html',
+                           expense_types=MONTHLY_EXPENSE_TYPES,
+                           expense_accounts=expense_accounts,
+                           payable_accounts=payable_accounts,
+                           cash_accounts=cash_accounts,
+                           suppliers=suppliers,
+                           bills_data=bills_data,
+                           months=MONTH_NAMES,
+                           current_year=current_year,
+                           current_month=current_month,
+                           today_date=today_date)
+
+
+@accounting_bp.route('/accounting/monthly-bill/pay/<int:bill_journal_id>', methods=['POST'])
+def pay_monthly_bill(bill_journal_id):
+    """
+    STEP 2 – Pay a recorded monthly bill.
+
+    Journal Entry:
+        Accounts Payable  Dr   (clear the liability – money owed is now settled)
+        Cash / Bank        Cr   (money goes out from selected account)
+    """
+    bill = JournalEntry.query.get_or_404(bill_journal_id)
+    if bill.reference != 'MBILL':
+        flash('Invalid bill reference.', 'error')
+        return redirect(url_for('accounting.monthly_bill'))
+
+    payable_account = request.form.get('payable_account') or '2100'
+    cash_account    = request.form.get('cash_account')
+    amount          = float(request.form.get('amount') or 0)
+    date_str        = request.form.get('pay_date')
+    party_id        = request.form.get('party_id') or None
+
+    if amount <= 0 or not cash_account:
+        flash('Payment amount and cash/bank account are required.', 'error')
+        return redirect(url_for('accounting.monthly_bill'))
+
+    pay_date = datetime.strptime(date_str, '%Y-%m-%d') if date_str else datetime.now()
+    pay_desc = f"Payment – {bill.description}"
+
+    # Accounts Payable Dr  /  Cash or Bank Cr
+    items = [
+        {'account_code': payable_account, 'debit': amount, 'credit': 0,      'party_id': party_id},
+        {'account_code': cash_account,    'debit': 0,       'credit': amount, 'party_id': party_id},
+    ]
+    pay_journal = record_journal_entry(pay_desc, items, reference='MBPAY', date=pay_date)
+    pay_journal.bill_journal_id = bill.id
+    db.session.commit()
+
+    flash(f'Payment of ৳{amount:,.2f} recorded (Entry #{pay_journal.id}).', 'success')
+    return redirect(url_for('accounting.monthly_bill'))
+
+
+def _build_bills_data():
+    """Build enriched bill list with payment status for display."""
+    raw_bills = JournalEntry.query.filter_by(reference='MBILL')\
+                                  .order_by(JournalEntry.id.desc()).limit(120).all()
+    result = []
+    for bill in raw_bills:
+        bill_amount = sum(e.debit for e in bill.entries if e.debit > 0)
+
+        # Payments linked to this bill
+        paid_journals = JournalEntry.query.filter_by(
+            reference='MBPAY', bill_journal_id=bill.id
+        ).all()
+
+        paid_amount = 0.0
+        for pj in paid_journals:
+            for e in pj.entries:
+                if e.credit > 0 and e.account.code.startswith('31'):
+                    paid_amount += e.credit
+
+        balance = bill_amount - paid_amount
+        if balance <= 0.005:
+            status = 'PAID'
+        elif paid_amount > 0:
+            status = 'PARTIAL'
+        else:
+            status = 'UNPAID'
+
+        expense_entry = next((e for e in bill.entries if e.debit > 0), None)
+        expense_name  = expense_entry.account.name if expense_entry else '—'
+        expense_code  = expense_entry.account.code if expense_entry else ''
+
+        payable_entry = next((e for e in bill.entries if e.credit > 0), None)
+        payable_code  = payable_entry.account.code if payable_entry else '2100'
+
+        result.append({
+            'journal':        bill,
+            'amount':         bill_amount,
+            'paid':           paid_amount,
+            'balance':        balance,
+            'status':         status,
+            'expense_name':   expense_name,
+            'expense_code':   expense_code,
+            'payable_code':   payable_code,
+            'paid_journals':  paid_journals,
+            'voucher_number': bill.voucher_number or '',
+        })
+    return result

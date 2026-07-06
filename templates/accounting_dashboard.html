@@ -54,6 +54,9 @@
             <a href="{{ url_for('accounting.record_transaction') }}" class="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center">
                 <i class="fas fa-plus-circle mr-3"></i> New Ledger Entry (Receive/Pay)
             </a>
+            <a href="{{ url_for('accounting.monthly_bill') }}" class="bg-violet-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all flex items-center">
+                <i class="fas fa-calendar-alt mr-3"></i> Monthly Bill
+            </a>
             <a href="{{ url_for('accounting.manual_billing') }}" class="bg-gray-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-900 shadow-lg shadow-gray-200 transition-all flex items-center">
                 <i class="fas fa-file-invoice mr-3"></i> Monthly Billing
             </a>
