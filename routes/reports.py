@@ -317,6 +317,9 @@ def _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basi
             balance = sum(e.credit - e.debit for e in entries) if is_revenue else sum(e.debit - e.credit for e in entries)
         else:
             # Cash Basis
+            f_d = from_date.date() if hasattr(from_date, 'date') else from_date
+            t_d = to_date.date() if hasattr(to_date, 'date') else to_date
+            
             entries_q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
             if event_id:
                 entries_q = entries_q.filter(LedgerEntry.event_id == event_id)
@@ -330,12 +333,12 @@ def _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basi
                 
                 if is_direct_cash:
                     dt = je1.date.date() if hasattr(je1.date, 'date') else je1.date
-                    if (not from_date or dt >= from_date) and (not to_date or dt <= to_date):
+                    if (not f_d or dt >= f_d) and (not t_d or dt <= t_d):
                         balance += (e.credit - e.debit) if is_revenue else (e.debit - e.credit)
                 else:
                     for pay_je in je1.bill_payments:
                         dt = pay_je.date.date() if hasattr(pay_je.date, 'date') else pay_je.date
-                        if (not from_date or dt >= from_date) and (not to_date or dt <= to_date):
+                        if (not f_d or dt >= f_d) and (not t_d or dt <= t_d):
                             pay_amount = sum(le.debit for le in pay_je.entries)
                             total_billed = sum(le.credit for le in je1.entries)
                             if total_billed > 0:
