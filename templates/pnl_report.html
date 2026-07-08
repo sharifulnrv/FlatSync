@@ -1,49 +1,48 @@
 {% extends "pdf_report_base.html" if is_pdf else "base.html" %}
 
-{% block header %}Profit & Loss Statement{% endblock %}
-{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Profit & Loss Statement') }}{% endblock %}
+{% block header %}Income & Expenditure Statement{% endblock %}
+{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Income & Expenditure Statement') }}{% endblock %}
 
 {% block content %}
 
 {% if is_pdf %}
 <style>
-    /* Premium Corporate PDF Styles (xhtml2pdf compatible) */
+    /* Clean, Elegant Financial PDF Styles */
     .report-container {
         font-family: Helvetica, Arial, sans-serif;
-        color: #1e293b;
+        color: #334155;
         font-size: 10pt;
     }
     
     .period-header {
         text-align: center;
-        margin-bottom: 25px;
+        margin-bottom: 30px;
         font-size: 11pt;
         color: #475569;
         font-weight: bold;
-        letter-spacing: 0.5px;
     }
     
     .financial-table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 30px;
+        margin-bottom: 35px;
     }
     
     .financial-table th {
-        background-color: #1e1b4b; /* Navy Blue */
-        color: #ffffff;
+        color: #0f172a;
         font-size: 9pt;
         font-weight: bold;
         text-transform: uppercase;
         text-align: left;
-        padding: 10px 15px;
-        letter-spacing: 1px;
+        padding: 8px 10px;
+        border-bottom: 2px solid #0f172a;
+        letter-spacing: 0.5px;
     }
     
     .financial-table td {
-        padding: 8px 15px;
+        padding: 8px 10px;
         font-size: 10pt;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: none;
     }
     
     .financial-table tr.stripe {
@@ -57,14 +56,16 @@
     }
     
     .section-total td {
-        background-color: #f1f5f9;
         color: #0f172a;
         font-weight: bold;
-        border-top: 2px solid #cbd5e1;
-        border-bottom: 2px solid #cbd5e1;
-        padding: 12px 15px;
+        border-bottom: none;
+        padding-top: 15px;
+        padding-bottom: 10px;
+        padding-left: 10px;
+        padding-right: 10px;
         text-transform: uppercase;
         font-size: 9pt;
+        background-color: transparent;
     }
     
     .net-profit-table {
@@ -74,17 +75,18 @@
     }
     
     .net-profit-row td {
-        background-color: #4f46e5; /* Indigo */
-        color: #ffffff;
+        background-color: #f8fafc;
+        color: #0f172a;
         font-weight: bold;
-        font-size: 14pt;
+        font-size: 12pt;
         padding: 15px 20px;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        border-top: 3px double #0f172a;
+        border-bottom: 3px double #0f172a;
     }
     
     .net-profit-row.loss td {
-        background-color: #e11d48; /* Rose/Red */
+        color: #e11d48;
     }
     
     .indent {
@@ -125,8 +127,8 @@
     <table class="financial-table">
         <thead>
             <tr>
-                <th>Revenue</th>
-                <th style="text-align: right;">Amount (৳)</th>
+                <th style="width: 70%;">Revenue</th>
+                <th style="width: 30%; text-align: right;">Amount (৳)</th>
             </tr>
         </thead>
         <tbody>
@@ -140,6 +142,7 @@
                 <td class="indent" colspan="2" style="color: #94a3b8; font-style: italic;">No revenue recorded.</td>
             </tr>
             {% endfor %}
+            <tr style="background-color: #0f172a;"><td colspan="2" style="padding: 0; height: 2px; line-height: 2px;"></td></tr>
             <tr class="section-total">
                 <td>Total Revenue</td>
                 <td class="td-amount">{{ "{:,.2f}".format(data.total_revenue) }}</td>
@@ -150,8 +153,8 @@
     <table class="financial-table">
         <thead>
             <tr>
-                <th>Expenses</th>
-                <th style="text-align: right;">Amount (৳)</th>
+                <th style="width: 70%;">Expenses</th>
+                <th style="width: 30%; text-align: right;">Amount (৳)</th>
             </tr>
         </thead>
         <tbody>
@@ -165,6 +168,7 @@
                 <td class="indent" colspan="2" style="color: #94a3b8; font-style: italic;">No expenses recorded.</td>
             </tr>
             {% endfor %}
+            <tr style="background-color: #0f172a;"><td colspan="2" style="padding: 0; height: 2px; line-height: 2px;"></td></tr>
             <tr class="section-total">
                 <td>Total Expenses</td>
                 <td class="td-amount">{{ "{:,.2f}".format(data.total_expense) }}</td>
@@ -175,8 +179,8 @@
     <table class="net-profit-table">
         <tbody>
             <tr class="net-profit-row {% if data.net_profit < 0 %}loss{% endif %}">
-                <td>{% if data.net_profit < 0 %}NET LOSS{% else %}NET PROFIT{% endif %}</td>
-                <td class="td-amount">৳ {{ "{:,.2f}".format(data.net_profit|abs) }}</td>
+                <td style="width: 70%;">{% if data.net_profit < 0 %}EXPENDITURE OVER INCOME{% else %}INCOME OVER EXPENDITURE{% endif %}</td>
+                <td class="td-amount" style="width: 30%;">৳ {{ "{:,.2f}".format(data.net_profit|abs) }}</td>
             </tr>
         </tbody>
     </table>
@@ -196,9 +200,9 @@
         <div>
             <h2 class="text-3xl font-black mb-1 uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">
                 {% if data.event %}
-                    {{ data.event.name }} - P&L
+                    {{ data.event.name }} - Income & Expenditure
                 {% else %}
-                    Profit & Loss Statement
+                    Income & Expenditure Statement
                 {% endif %}
             </h2>
             <form action="{{ url_for('reports.pnl_statement') }}" method="GET" class="flex flex-col gap-4 mt-6">
@@ -248,7 +252,7 @@
             </form>
         </div>
         <div class="text-right bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
-            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Net Income</p>
+            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Income Over Expenditure</p>
             <p class="text-5xl font-black {% if data.net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} drop-shadow-md">
                 <span class="text-3xl opacity-50 mr-1">৳</span>{{ "{:,.2f}".format(data.net_profit|abs) }}
             </p>
@@ -319,7 +323,7 @@
                 
                 <div class="z-10">
                     <span class="text-[10px] font-black {% if data.net_profit < 0 %}text-rose-500{% else %}text-emerald-500{% endif %} uppercase tracking-[0.2em] block mb-1">Final Result</span>
-                    <span class="text-3xl font-black text-gray-900 uppercase tracking-tight">Net {% if data.net_profit < 0 %}Loss{% else %}Profit{% endif %}</span>
+                    <span class="text-3xl font-black text-gray-900 uppercase tracking-tight">{% if data.net_profit < 0 %}Expenditure Over Income{% else %}Income Over Expenditure{% endif %}</span>
                 </div>
                 
                 <div class="z-10 bg-white px-8 py-4 rounded-2xl shadow-sm border border-gray-100">

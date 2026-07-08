@@ -19,9 +19,8 @@
         }
         .header {
             text-align: center;
-            border-bottom: 2px solid #1e1b4b;
             padding-bottom: 5px;
-            margin-bottom: 15px;
+            margin-bottom: 5px;
         }
         .company-name {
             font-size: 16pt;
@@ -149,6 +148,7 @@
         <p class="report-title">{% block pdf_header %}Financial Report{% endblock %}</p>
         <p style="font-size:8pt; color:#94a3b8; margin-top:2px;">Generated: {{ now_date }}</p>
     </div>
+    <div style="border-top: 2px solid #1e1b4b; margin-bottom: 20px;"></div>
     {% endif %}
 
     <div class="content">
