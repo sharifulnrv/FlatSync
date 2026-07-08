@@ -223,18 +223,59 @@
         
         <!-- Date Filter Form -->
         <form method="GET" action="{{ url_for('accounting.dashboard') }}" class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center space-x-2">
-                <input type="date" name="start_date" value="{{ start_date or '' }}" class="bg-gray-50 border-none rounded-xl px-3 py-2 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-indigo-500">
-                <span class="text-gray-300 font-bold">to</span>
-                <input type="date" name="end_date" value="{{ end_date or '' }}" class="bg-gray-50 border-none rounded-xl px-3 py-2 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-indigo-500">
+            <!-- Preset Month Filter -->
+            <div class="flex items-center gap-3">
+                <div class="flex items-center bg-gray-50 rounded-xl p-1 border border-gray-200">
+                    <select id="yearSelect" class="bg-transparent text-gray-700 text-xs px-2 py-1 outline-none cursor-pointer font-bold border-r border-gray-300 appearance-none text-center">
+                        <!-- JS populated -->
+                    </select>
+                    <select id="monthSelect" onchange="autoFillDates()" class="bg-transparent text-gray-700 text-xs px-2 py-1 outline-none cursor-pointer font-bold appearance-none text-center">
+                        <option value="">-- Month --</option>
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                    </select>
+                </div>
+                
+                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest px-1">OR</span>
+                
+                <div class="flex items-center space-x-2">
+                    <input type="date" id="from_date" name="start_date" value="{{ start_date or '' }}" class="bg-gray-50 border-none rounded-xl px-3 py-2 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-indigo-500">
+                    <span class="text-gray-300 font-bold">to</span>
+                    <input type="date" id="to_date" name="end_date" value="{{ end_date or '' }}" class="bg-gray-50 border-none rounded-xl px-3 py-2 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest px-1">Basis</span>
+                    <div class="flex items-center bg-gray-50 rounded-xl p-1 border border-gray-200">
+                        <select name="basis" class="bg-transparent text-gray-700 text-xs px-2 py-1 outline-none cursor-pointer font-bold appearance-none text-center">
+                            <option value="accrual" {% if basis == 'accrual' %}selected{% endif %}>Accrual (Entry Date)</option>
+                            <option value="cash" {% if basis == 'cash' %}selected{% endif %}>Cash (Paid Date)</option>
+                        </select>
+                    </div>
+                </div>
             </div>
+            
             <button type="submit" class="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl transition-all" title="Filter">
                 <i class="fas fa-filter text-xs"></i>
             </button>
-            {% if start_date or end_date %}
+            {% if start_date or end_date or basis == 'cash' %}
             <a href="{{ url_for('accounting.dashboard') }}" class="text-xs text-rose-500 font-bold hover:underline">Clear</a>
             {% endif %}
         </form>
+        
+        <!-- Explanation Tooltip/Box -->
+        <div class="w-full mt-3 text-xs text-gray-500 bg-blue-50/50 p-3 rounded-xl border border-blue-100 hidden md:block">
+            <p><strong class="text-blue-700">Accrual (Default):</strong> Displays all transactions based on their original entry dates (including unpaid bills).</p>
+            <p><strong class="text-blue-700">Cash Basis:</strong> Only displays transactions involving actual cash/bank movements on the dates cash changed hands.</p>
+        </div>
 
         <div class="flex items-center space-x-4">
             <a href="{{ url_for('accounting.export_all_transactions') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center shadow-sm transition-all hover:scale-105 active:scale-95">
@@ -306,3 +347,38 @@
     </div>
 </div>
 {% endblock %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const yearSelect = document.getElementById('yearSelect');
+    if(!yearSelect) return;
+    
+    const currentYear = new Date().getFullYear();
+    for(let y = currentYear - 5; y <= currentYear + 1; y++) {
+        let opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if(y === currentYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+    }
+});
+
+function autoFillDates() {
+    const y = document.getElementById('yearSelect').value;
+    const m = document.getElementById('monthSelect').value;
+    
+    if(!y || !m) return; 
+    
+    const firstDay = new Date(y, m - 1, 1);
+    const lastDay = new Date(y, m, 0);
+    
+    const fMonth = String(firstDay.getMonth() + 1).padStart(2, '0');
+    const fDay = String(firstDay.getDate()).padStart(2, '0');
+    
+    const lMonth = String(lastDay.getMonth() + 1).padStart(2, '0');
+    const lDay = String(lastDay.getDate()).padStart(2, '0');
+    
+    document.getElementById('from_date').value = `${firstDay.getFullYear()}-${fMonth}-${fDay}`;
+    document.getElementById('to_date').value = `${lastDay.getFullYear()}-${lMonth}-${lDay}`;
+}
+</script>

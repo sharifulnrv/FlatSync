@@ -40,8 +40,14 @@ def dashboard():
 
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
+    basis = request.args.get('basis', 'accrual')
     
-    query = JournalEntry.query.order_by(JournalEntry.id.desc())
+    query = JournalEntry.query
+    
+    if basis == 'cash':
+        query = query.join(LedgerEntry).join(Account).filter(Account.code.like('31%'))
+        
+    query = query.order_by(JournalEntry.id.desc())
     
     if start_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
@@ -51,7 +57,7 @@ def dashboard():
         query = query.filter(JournalEntry.date <= end_date)
         
     # If no filters, limit to 20. If filters, show all or more? Let's show all if filtered.
-    if not start_date_str and not end_date_str:
+    if not start_date_str and not end_date_str and basis == 'accrual':
         journals = query.limit(20).all()
     else:
         journals = query.all()
@@ -85,7 +91,8 @@ def dashboard():
                             journals=journals,
                             summary=summary,
                             start_date=start_date_str,
-                            end_date=end_date_str)
+                            end_date=end_date_str,
+                            basis=basis)
 
 @accounting_bp.route('/accounting/post-bill', methods=['GET', 'POST'])
 def post_bill():

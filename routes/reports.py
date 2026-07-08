@@ -286,6 +286,75 @@ def ledger_report():
                            from_date=from_date_str, 
                            to_date=to_date_str)
 
+
+def _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basis='accrual'):
+    from models import Event, Account, LedgerEntry, JournalEntry
+    from app import db
+    event = Event.query.get(event_id) if event_id else None
+    
+    revenue_accounts = Account.query.filter(Account.type == 'revenue', Account.is_summary == False).order_by(Account.code).all()
+    expense_accounts = Account.query.filter(Account.type == 'expense', Account.is_summary == False).order_by(Account.code).all()
+    
+    pnl_data = {'revenue': [], 'expense': [], 'total_revenue': 0, 'total_expense': 0, 
+                'from_date': from_date_str, 'to_date': to_date_str, 'event': event, 'basis': basis}
+                
+    for acc in revenue_accounts + expense_accounts:
+        balance = 0
+        is_revenue = (acc.type == 'revenue')
+        
+        if basis == 'accrual':
+            q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
+            if event_id:
+                q = q.filter(LedgerEntry.event_id == event_id)
+            else:
+                q = q.filter(LedgerEntry.event_id == None)
+            
+            if from_date: q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
+            else: q = q.join(JournalEntry)
+            if to_date: q = q.filter(JournalEntry.date <= to_date)
+                
+            entries = q.all()
+            balance = sum(e.credit - e.debit for e in entries) if is_revenue else sum(e.debit - e.credit for e in entries)
+        else:
+            # Cash Basis
+            entries_q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
+            if event_id:
+                entries_q = entries_q.filter(LedgerEntry.event_id == event_id)
+            else:
+                entries_q = entries_q.filter(LedgerEntry.event_id == None)
+                
+            entries = entries_q.all()
+            for e in entries:
+                je1 = e.parent
+                is_direct_cash = any(le.account.code.startswith('31') for le in je1.entries)
+                
+                if is_direct_cash:
+                    dt = je1.date.date() if hasattr(je1.date, 'date') else je1.date
+                    if (not from_date or dt >= from_date) and (not to_date or dt <= to_date):
+                        balance += (e.credit - e.debit) if is_revenue else (e.debit - e.credit)
+                else:
+                    for pay_je in je1.bill_payments:
+                        dt = pay_je.date.date() if hasattr(pay_je.date, 'date') else pay_je.date
+                        if (not from_date or dt >= from_date) and (not to_date or dt <= to_date):
+                            pay_amount = sum(le.debit for le in pay_je.entries)
+                            total_billed = sum(le.credit for le in je1.entries)
+                            if total_billed > 0:
+                                line_amount = (e.credit - e.debit) if is_revenue else (e.debit - e.credit)
+                                pro_rated = pay_amount * (line_amount / total_billed)
+                                balance += pro_rated
+                                
+        if balance != 0:
+            item = {'name': acc.name, 'code': acc.code, 'balance': balance}
+            if is_revenue:
+                pnl_data['revenue'].append(item)
+                pnl_data['total_revenue'] += balance
+            else:
+                pnl_data['expense'].append(item)
+                pnl_data['total_expense'] += balance
+                
+    pnl_data['net_profit'] = pnl_data['total_revenue'] - pnl_data['total_expense']
+    return pnl_data
+
 @reports_bp.route('/reports')
 def report_index():
     return render_template('reports_index.html')
@@ -294,55 +363,9 @@ def report_index():
 def pnl_statement():
     from_date, to_date, from_date_str, to_date_str = get_dates()
     event_id = request.args.get('event_id', type=int)
+    basis = request.args.get('basis', 'accrual')
     
-    revenue_accounts = Account.query.filter_by(type='revenue').order_by(Account.code).all()
-    expense_accounts = Account.query.filter_by(type='expense').order_by(Account.code).all()
-    
-    from models import Event
-    event = Event.query.get(event_id) if event_id else None
-    
-    pnl_data = {'revenue': [], 'expense': [], 'total_revenue': 0, 'total_expense': 0, 
-                'from_date': from_date_str, 'to_date': to_date_str, 'event': event}
-    
-    for acc in revenue_accounts:
-        if acc.is_summary: continue
-        q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
-        
-        # Filter by event or association
-        if event_id:
-            q = q.filter(LedgerEntry.event_id == event_id)
-        else:
-            q = q.filter(LedgerEntry.event_id == None)
-            
-        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
-        q = q.filter(JournalEntry.date <= to_date)
-            
-        entries = q.all()
-        balance = sum(e.credit - e.debit for e in entries)
-        if balance != 0:
-            pnl_data['revenue'].append({'name': acc.name, 'code': acc.code, 'balance': balance})
-            pnl_data['total_revenue'] += balance
-            
-    for acc in expense_accounts:
-        if acc.is_summary: continue
-        q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
-        
-        # Filter by event or association
-        if event_id:
-            q = q.filter(LedgerEntry.event_id == event_id)
-        else:
-            q = q.filter(LedgerEntry.event_id == None)
-            
-        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
-        q = q.filter(JournalEntry.date <= to_date)
-            
-        entries = q.all()
-        balance = sum(e.debit - e.credit for e in entries)
-        if balance != 0:
-            pnl_data['expense'].append({'name': acc.name, 'code': acc.code, 'balance': balance})
-            pnl_data['total_expense'] += balance
-            
-    pnl_data['net_profit'] = pnl_data['total_revenue'] - pnl_data['total_expense']
+    pnl_data = _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basis)
     
     return render_template('pnl_report.html', data=pnl_data)
 
@@ -577,12 +600,9 @@ def export_pnl():
         from_date, to_date, from_date_str, to_date_str = get_dates()
         event_id = request.args.get('event_id', type=int)
         
-        revenue_accounts = Account.query.filter_by(type='revenue').order_by(Account.code).all()
-        expense_accounts = Account.query.filter_by(type='expense').order_by(Account.code).all()
-        
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Profit & Loss"
+        ws.title = "Income & Expenditure"
         
         # Style definitions inlined or centralized
         
@@ -590,7 +610,9 @@ def export_pnl():
         company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
         ws.append([company_name])
         ws.append([company_address])
-        ws.append(["PROFIT & LOSS STATEMENT"])
+        
+        basis_str = "Cash Basis" if request.args.get('basis', 'accrual') == 'cash' else "Accrual Basis"
+        ws.append([f"INCOME & EXPENDITURE STATEMENT ({basis_str})"])
         ws.append([f"Reporting Period: {from_date_str} to {to_date_str}"])
         ws.append([]) # Spacer
         
@@ -610,41 +632,21 @@ def export_pnl():
             traceback.print_exc(file=f)
         raise e
     
+    basis = request.args.get('basis', 'accrual')
+    pnl_data = _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basis)
+    
     ws.append(["REVENUE"])
-    total_rev = 0
-    for acc in revenue_accounts:
-        if acc.is_summary: continue
-        q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
-        if event_id:
-            q = q.filter(LedgerEntry.event_id == event_id)
-        else:
-            q = q.filter(LedgerEntry.event_id == None)
-        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date)
-        q = q.filter(JournalEntry.date <= to_date)
-        balance = sum(e.credit - e.debit for e in q.all())
-        if balance != 0:
-            ws.append([f"{acc.code} - {acc.name}", balance])
-            total_rev += balance
-    ws.append(["Total Revenue", total_rev])
+    for item in pnl_data['revenue']:
+        ws.append([f"{item['code']} - {item['name']}", item['balance']])
+    ws.append(["Total Revenue", pnl_data['total_revenue']])
     ws.append([])
-
+    
     ws.append(["EXPENSES"])
-    total_exp = 0
-    for acc in expense_accounts:
-        if acc.is_summary: continue
-        q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == acc.id)
-        if event_id:
-            q = q.filter(LedgerEntry.event_id == event_id)
-        else:
-            q = q.filter(LedgerEntry.event_id == None)
-        q = q.join(JournalEntry).filter(JournalEntry.date >= from_date, JournalEntry.date <= to_date)
-        balance = sum(e.debit - e.credit for e in q.all())
-        if balance != 0:
-            ws.append([f"{acc.code} - {acc.name}", balance])
-            total_exp += balance
-    ws.append(["Total Expenses", total_exp])
+    for item in pnl_data['expense']:
+        ws.append([f"{item['code']} - {item['name']}", item['balance']])
+    ws.append(["Total Expenses", pnl_data['total_expense']])
     ws.append([])
-    ws.append(["NET PROFIT", total_rev - total_exp])
+    ws.append(["NET PROFIT", pnl_data['net_profit']])
 
     autosize_workbook(ws)
 
@@ -1250,50 +1252,13 @@ def pnl_statement_pdf():
     from models import Account, LedgerEntry, Event
     f_date, t_date, f_str, t_str = get_dates()
     event_id = request.args.get('event_id', type=int)
-    event = Event.query.get(event_id) if event_id else None
+    basis = request.args.get('basis', 'accrual')
     
-    rev_accs = Account.query.filter(Account.type == 'revenue', Account.is_summary == False).all()
-    exp_accs = Account.query.filter(Account.type == 'expense', Account.is_summary == False).all()
-    
-    revenue_items = []
-    expense_items = []
-    total_revenue = 0
-    total_expense = 0
-    
-    for acc in rev_accs:
-        bal = db.session.query(func.sum(LedgerEntry.credit) - func.sum(LedgerEntry.debit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id)
-        if f_date: bal = bal.filter(JournalEntry.date >= f_date)
-        if t_date: bal = bal.filter(JournalEntry.date <= t_date)
-        if event_id: bal = bal.filter(LedgerEntry.event_id == event_id)
-        else: bal = bal.filter(LedgerEntry.event_id == None)
-        val = bal.scalar() or 0
-        if val != 0:
-            revenue_items.append({'code': acc.code, 'name': acc.name, 'balance': val})
-            total_revenue += val
-            
-    for acc in exp_accs:
-        bal = db.session.query(func.sum(LedgerEntry.debit) - func.sum(LedgerEntry.credit)).join(JournalEntry).filter(LedgerEntry.account_id == acc.id)
-        if f_date: bal = bal.filter(JournalEntry.date >= f_date)
-        if t_date: bal = bal.filter(JournalEntry.date <= t_date)
-        if event_id: bal = bal.filter(LedgerEntry.event_id == event_id)
-        else: bal = bal.filter(LedgerEntry.event_id == None)
-        val = bal.scalar() or 0
-        if val != 0:
-            expense_items.append({'code': acc.code, 'name': acc.name, 'balance': val})
-            total_expense += val
+    pnl_data = _get_pnl_data(f_date, t_date, f_str, t_str, event_id, basis)
 
     from io import BytesIO
     pdf_content = render_to_pdf('pnl_report.html', {
-        'data': {
-            'revenue': revenue_items,
-            'expense': expense_items,
-            'total_revenue': total_revenue,
-            'total_expense': total_expense,
-            'net_profit': total_revenue - total_expense,
-            'from_date': f_str,
-            'to_date': t_str,
-            'event': event
-        }
+        'data': pnl_data
     })
     if pdf_content:
         return send_file(BytesIO(pdf_content), download_name=f"PnL_Statement_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)

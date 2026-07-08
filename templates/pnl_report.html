@@ -1,7 +1,7 @@
 {% extends "pdf_report_base.html" if is_pdf else "base.html" %}
 
 {% block header %}Income & Expenditure Statement{% endblock %}
-{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Income & Expenditure Statement') }}{% endblock %}
+{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Income & Expenditure Statement') }} ({{ 'Cash' if data.basis == 'cash' else 'Accrual' }} Basis){% endblock %}
 
 {% block content %}
 
@@ -192,7 +192,7 @@
     <div class="bg-gradient-to-r from-gray-800 to-gray-900 p-12 text-white flex justify-between items-center rounded-2xl shadow-lg mb-8">
         <style>
             /* Fix for option tags in dropdown having transparent backgrounds */
-            #yearSelect option, #monthSelect option {
+            #yearSelect option, #monthSelect option, select[name="basis"] option {
                 background-color: #1f2937; /* Tailwind gray-800 */
                 color: #ffffff;
             }
@@ -204,6 +204,7 @@
                 {% else %}
                     Income & Expenditure Statement
                 {% endif %}
+                <span class="text-lg text-gray-400 font-medium tracking-normal ml-2">({{ 'Cash' if data.basis == 'cash' else 'Accrual' }} Basis)</span>
             </h2>
             <form action="{{ url_for('reports.pnl_statement') }}" method="GET" class="flex flex-col gap-4 mt-6">
                 <!-- Preset Month Filter -->
@@ -237,12 +238,20 @@
                         <span class="text-gray-400 text-xs px-2 font-bold uppercase tracking-widest">to</span>
                         <input type="date" id="to_date" name="to_date" value="{{ data.to_date or '' }}" class="bg-transparent text-white text-xs px-3 py-2 outline-none cursor-pointer">
                     </div>
+                    
+                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest px-2">Basis</span>
+                    <div class="flex items-center bg-gray-700/50 rounded-xl p-1 backdrop-blur-sm border border-gray-600/50">
+                        <select name="basis" class="bg-transparent text-white text-xs px-3 py-2 outline-none cursor-pointer font-bold appearance-none text-center">
+                            <option value="accrual" {% if data.basis == 'accrual' %}selected{% endif %}>Accrual (Entry Date)</option>
+                            <option value="cash" {% if data.basis == 'cash' %}selected{% endif %}>Cash (Paid Date)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Action Buttons -->
                 <div class="flex items-center gap-3">
                     <button type="submit" class="bg-indigo-500 hover:bg-indigo-400 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/30 active:scale-95">Filter</button>
-                    <a href="{{ url_for('reports.pnl_statement_pdf', from_date=data.from_date, to_date=data.to_date, event_id=data.event.id if data.event) }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center shadow-lg backdrop-blur-sm active:scale-95">
+                    <a href="{{ url_for('reports.pnl_statement_pdf', from_date=data.from_date, to_date=data.to_date, event_id=data.event.id if data.event else None, basis=data.basis) }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center shadow-lg backdrop-blur-sm active:scale-95">
                         <i class="fas fa-file-pdf mr-2 text-rose-400"></i> PDF
                     </a>
                     {% if data.from_date or data.to_date %}
@@ -250,6 +259,13 @@
                     {% endif %}
                 </div>
             </form>
+            
+            <!-- Explanation Tooltip/Box -->
+            <div class="mt-4 text-xs text-gray-400 bg-gray-800/80 p-3 rounded-xl border border-gray-700/50 hidden md:block max-w-xl">
+                <p class="mb-1"><strong class="text-gray-300">Accrual (Default):</strong> Calculates totals based on the original transaction dates.</p>
+                <p><strong class="text-gray-300">Cash Basis:</strong> Iterates through transactions and only recognizes revenue and expenses on the dates that cash actually changed hands. Partial payments will be pro-rated across the invoice line items.</p>
+            </div>
+
         </div>
         <div class="text-right bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
             <p class="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Income Over Expenditure</p>
