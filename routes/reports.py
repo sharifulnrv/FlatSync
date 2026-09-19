@@ -347,7 +347,7 @@ def _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basi
                                 balance += pro_rated
                                 
         if balance != 0:
-            item = {'name': acc.name, 'code': acc.code, 'balance': balance}
+            item = {'name': acc.name, 'code': acc.code, 'balance': balance, 'account_id': acc.id}
             if is_revenue:
                 pnl_data['revenue'].append(item)
                 pnl_data['total_revenue'] += balance
@@ -602,61 +602,134 @@ def export_pnl():
     try:
         from_date, to_date, from_date_str, to_date_str = get_dates()
         event_id = request.args.get('event_id', type=int)
-        
+        basis = request.args.get('basis', 'accrual')
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Income & Expenditure"
-        
-        # Style definitions inlined or centralized
-        
+
         company_name = current_app.config.get('COMPANY_NAME', 'Association')
         company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
-        ws.append([company_name])
-        ws.append([company_address])
-        
-        basis_str = "Cash Basis" if request.args.get('basis', 'accrual') == 'cash' else "Accrual Basis"
-        ws.append([f"INCOME & EXPENDITURE STATEMENT ({basis_str})"])
-        ws.append([f"Reporting Period: {from_date_str} to {to_date_str}"])
-        ws.append([]) # Spacer
-        
-        # Styling
-        # Branding Header
-        last_col = "G"
+
+        # ── Header rows (no basis label) ──────────────────────────────────
+        ws.append([company_name])                                      # row 1
+        ws.append([company_address])                                   # row 2
+        ws.append(["INCOME & EXPENDITURE STATEMENT"])                  # row 3
+        ws.append([f"Reporting Period: {from_date_str} to {to_date_str}"])  # row 4
+        ws.append([])                                                  # row 5 spacer
+
+        last_col = "C"
         for row_idx in [1, 2, 3, 4]:
             ws.merge_cells(f'A{row_idx}:{last_col}{row_idx}')
             cell = ws.cell(row=row_idx, column=1)
             cell.alignment = Alignment(horizontal="center")
-            if row_idx == 1: cell.font = TITLE_FONT
+            if row_idx == 1:   cell.font = TITLE_FONT
             elif row_idx == 2: cell.font = ADDR_FONT
-            else: cell.font = REPORT_TITLE_FONT
+            else:              cell.font = REPORT_TITLE_FONT
+
     except Exception as e:
         with open("error.log", "a") as f:
             f.write(f"\n--- PNL EXPORT ERROR AT {datetime.now()} ---\n")
             traceback.print_exc(file=f)
         raise e
-    
-    basis = request.args.get('basis', 'accrual')
-    pnl_data = _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basis)
-    
-    ws.append(["REVENUE"])
-    for item in pnl_data['revenue']:
-        ws.append([f"{item['code']} - {item['name']}", item['balance']])
-    ws.append(["Total Revenue", pnl_data['total_revenue']])
-    ws.append([])
-    
-    ws.append(["EXPENSES"])
-    for item in pnl_data['expense']:
-        ws.append([f"{item['code']} - {item['name']}", item['balance']])
-    ws.append(["Total Expenses", pnl_data['total_expense']])
-    ws.append([])
-    ws.append(["NET PROFIT", pnl_data['net_profit']])
 
-    autosize_workbook(ws)
+    pnl_data = _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basis)
+
+    # ── Style helpers ─────────────────────────────────────────────────────
+    SECTION_FILL   = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    SECTION_FONT   = Font(color="FFFFFF", bold=True, size=11)
+    TOTAL_FILL_REV = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    TOTAL_FILL_EXP = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+    TOTAL_FONT_REV = Font(bold=True, color="065F46", size=10)
+    TOTAL_FONT_EXP = Font(bold=True, color="991B1B", size=10)
+    NET_FILL_POS   = PatternFill(start_color="A7F3D0", end_color="A7F3D0", fill_type="solid")
+    NET_FILL_NEG   = PatternFill(start_color="FECACA", end_color="FECACA", fill_type="solid")
+    NET_FONT_POS   = Font(bold=True, color="064E3B", size=12)
+    NET_FONT_NEG   = Font(bold=True, color="7F1D1D", size=12)
+    DATA_FONT      = Font(size=10)
+    AMOUNT_ALIGN   = Alignment(horizontal="right")
+    STRIPE_FILL    = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+
+    def _style_row(row_cells, label_font=None, label_fill=None, amount_font=None, amount_fill=None):
+        for i, cell in enumerate(row_cells):
+            cell.border = THIN_BORDER
+            if i == 0:
+                if label_font:  cell.font  = label_font
+                if label_fill:  cell.fill  = label_fill
+            else:
+                cell.alignment = AMOUNT_ALIGN
+                if amount_font: cell.font  = amount_font
+                if amount_fill: cell.fill  = amount_fill
+
+    # ── Column headers ────────────────────────────────────────────────────
+    ws.append(["Account / Description", "Amount (BDT)"])
+    hdr_row = ws.max_row
+    for cell in ws[hdr_row]:
+        cell.font   = HEADER_FONT
+        cell.fill   = HEADER_FILL
+        cell.border = THIN_BORDER
+        cell.alignment = Alignment(horizontal="center")
+
+    # ── REVENUE section ───────────────────────────────────────────────────
+    ws.append(["REVENUE", ""])
+    sec_row = ws.max_row
+    for cell in ws[sec_row]:
+        cell.font = SECTION_FONT; cell.fill = SECTION_FILL; cell.border = THIN_BORDER
+
+    for idx, item in enumerate(pnl_data['revenue']):
+        ws.append([f"{item['code']} - {item['name']}", item['balance']])
+        r = ws.max_row
+        fill = STRIPE_FILL if idx % 2 == 0 else None
+        _style_row(ws[r], label_font=DATA_FONT, label_fill=fill, amount_font=DATA_FONT, amount_fill=fill)
+
+    ws.append(["Total Revenue", pnl_data['total_revenue']])
+    _style_row(ws[ws.max_row], label_font=TOTAL_FONT_REV, label_fill=TOTAL_FILL_REV,
+               amount_font=TOTAL_FONT_REV, amount_fill=TOTAL_FILL_REV)
+    ws.append([])
+
+    # ── EXPENSES section ──────────────────────────────────────────────────
+    ws.append(["EXPENSES", ""])
+    sec_row = ws.max_row
+    for cell in ws[sec_row]:
+        cell.font = SECTION_FONT; cell.fill = SECTION_FILL; cell.border = THIN_BORDER
+
+    for idx, item in enumerate(pnl_data['expense']):
+        ws.append([f"{item['code']} - {item['name']}", item['balance']])
+        r = ws.max_row
+        fill = STRIPE_FILL if idx % 2 == 0 else None
+        _style_row(ws[r], label_font=DATA_FONT, label_fill=fill, amount_font=DATA_FONT, amount_fill=fill)
+
+    ws.append(["Total Expenses", pnl_data['total_expense']])
+    _style_row(ws[ws.max_row], label_font=TOTAL_FONT_EXP, label_fill=TOTAL_FILL_EXP,
+               amount_font=TOTAL_FONT_EXP, amount_fill=TOTAL_FILL_EXP)
+    ws.append([])
+
+    # ── Net Profit / Loss row ─────────────────────────────────────────────
+    net = pnl_data['net_profit']
+    net_label = "INCOME OVER EXPENDITURE" if net >= 0 else "EXPENDITURE OVER INCOME"
+    ws.append([net_label, net])
+    nf = NET_FONT_POS if net >= 0 else NET_FONT_NEG
+    nfill = NET_FILL_POS if net >= 0 else NET_FILL_NEG
+    _style_row(ws[ws.max_row], label_font=nf, label_fill=nfill, amount_font=nf, amount_fill=nfill)
+
+    # ── Column widths ─────────────────────────────────────────────────────
+    ws.column_dimensions['A'].width = 45
+    ws.column_dimensions['B'].width = 20
+
+    # Format amount column as number
+    for row in ws.iter_rows(min_row=6, min_col=2, max_col=2):
+        for cell in row:
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = '#,##0.00'
 
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"PNL_Statement_{datetime.now().strftime('%Y-%m-%d')}.xlsx")
+    return send_file(
+        output, as_attachment=True,
+        download_name=f"PNL_Statement_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 @reports_bp.route('/reports/export/trial-balance')
 def export_trial_balance():
@@ -1250,6 +1323,193 @@ def trial_balance_pdf():
         return send_file(BytesIO(pdf_content), download_name=f"Trial_Balance_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
     return "Error", 500
 
+@reports_bp.route('/reports/pnl/account-detail')
+def pnl_account_detail():
+    """Returns ledger entry details for a single account as JSON (used by the modal)."""
+    from models import Account, LedgerEntry, JournalEntry, Customer, Party
+    from flask import jsonify
+    account_id = request.args.get('account_id', type=int)
+    if not account_id:
+        return jsonify({'error': 'account_id required'}), 400
+
+    f_date, t_date, f_str, t_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
+
+    acc = Account.query.get_or_404(account_id)
+
+    q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == account_id)
+    if event_id:
+        q = q.filter(LedgerEntry.event_id == event_id)
+    else:
+        q = q.filter(LedgerEntry.event_id == None)
+    q = q.join(JournalEntry)
+    if f_date:
+        q = q.filter(JournalEntry.date >= f_date)
+    if t_date:
+        q = q.filter(JournalEntry.date <= t_date)
+    q = q.order_by(JournalEntry.date)
+
+    entries = q.all()
+    rows = []
+    for e in entries:
+        je = e.parent
+        party_name = ''
+        if e.customer_id:
+            c = Customer.query.get(e.customer_id)
+            party_name = c.name if c else ''
+        elif e.party_id:
+            p = Party.query.get(e.party_id)
+            party_name = p.name if p else ''
+        rows.append({
+            'date': je.date.strftime('%Y-%m-%d') if je.date else '',
+            'narration': (je.description or je.reference or ''),
+            'party': party_name,
+            'debit':  float(e.debit  or 0),
+            'credit': float(e.credit or 0),
+        })
+
+    return jsonify({
+        'account_name': acc.name,
+        'account_code': acc.code,
+        'from_date': f_str,
+        'to_date': t_str,
+        'entries': rows,
+        'total_debit':  sum(r['debit']  for r in rows),
+        'total_credit': sum(r['credit'] for r in rows),
+    })
+
+
+@reports_bp.route('/reports/pnl/account-detail/csv')
+def pnl_account_detail_csv():
+    """Downloads ledger entries for a single account as a formatted CSV."""
+    import csv
+    from io import StringIO, BytesIO
+    from models import Account, LedgerEntry, JournalEntry, Customer, Party
+
+    account_id = request.args.get('account_id', type=int)
+    if not account_id:
+        return "account_id required", 400
+
+    f_date, t_date, f_str, t_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
+    acc = Account.query.get_or_404(account_id)
+
+    q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == account_id)
+    if event_id:
+        q = q.filter(LedgerEntry.event_id == event_id)
+    else:
+        q = q.filter(LedgerEntry.event_id == None)
+    q = q.join(JournalEntry)
+    if f_date:
+        q = q.filter(JournalEntry.date >= f_date)
+    if t_date:
+        q = q.filter(JournalEntry.date <= t_date)
+    q = q.order_by(JournalEntry.date)
+    entries = q.all()
+
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow([company_name])
+    writer.writerow([f"Account: {acc.code} - {acc.name}"])
+    writer.writerow([f"Period: {f_str} to {t_str}"])
+    writer.writerow([])
+    writer.writerow(['Date', 'Narration', 'Party / Customer', 'Debit (BDT)', 'Credit (BDT)'])
+
+    total_debit = total_credit = 0
+    for e in entries:
+        je = e.parent
+        party_name = ''
+        if e.customer_id:
+            c = Customer.query.get(e.customer_id)
+            party_name = c.name if c else ''
+        elif e.party_id:
+            p = Party.query.get(e.party_id)
+            party_name = p.name if p else ''
+        dr = float(e.debit or 0)
+        cr = float(e.credit or 0)
+        total_debit  += dr
+        total_credit += cr
+        writer.writerow([
+            je.date.strftime('%Y-%m-%d') if je.date else '',
+            (je.description or je.reference or ''),
+            party_name,
+            f"{dr:.2f}" if dr else '',
+            f"{cr:.2f}" if cr else '',
+        ])
+
+    writer.writerow([])
+    writer.writerow(['', '', 'TOTAL', f"{total_debit:.2f}", f"{total_credit:.2f}"])
+
+    output = BytesIO(si.getvalue().encode('utf-8-sig'))
+    output.seek(0)
+    safe_name = acc.name.replace(' ', '_').replace('/', '-')
+    return send_file(output, as_attachment=True,
+                     download_name=f"Detail_{safe_name}_{datetime.now().strftime('%Y%m%d')}.csv",
+                     mimetype='text/csv')
+
+
+@reports_bp.route('/reports/pnl/account-detail/pdf')
+def pnl_account_detail_pdf():
+    """Downloads ledger entries for a single account as PDF."""
+    from models import Account, LedgerEntry, JournalEntry, Customer, Party
+    from io import BytesIO
+
+    account_id = request.args.get('account_id', type=int)
+    if not account_id:
+        return "account_id required", 400
+
+    f_date, t_date, f_str, t_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
+    acc = Account.query.get_or_404(account_id)
+
+    q = db.session.query(LedgerEntry).filter(LedgerEntry.account_id == account_id)
+    if event_id:
+        q = q.filter(LedgerEntry.event_id == event_id)
+    else:
+        q = q.filter(LedgerEntry.event_id == None)
+    q = q.join(JournalEntry)
+    if f_date:
+        q = q.filter(JournalEntry.date >= f_date)
+    if t_date:
+        q = q.filter(JournalEntry.date <= t_date)
+    q = q.order_by(JournalEntry.date)
+    entries = q.all()
+
+    rows = []
+    total_debit = total_credit = 0
+    for e in entries:
+        je = e.parent
+        party_name = ''
+        if e.customer_id:
+            c = Customer.query.get(e.customer_id)
+            party_name = c.name if c else ''
+        elif e.party_id:
+            p = Party.query.get(e.party_id)
+            party_name = p.name if p else ''
+        dr = float(e.debit or 0)
+        cr = float(e.credit or 0)
+        total_debit  += dr
+        total_credit += cr
+        rows.append({'date': je.date.strftime('%Y-%m-%d') if je.date else '',
+                     'narration': (je.description or je.reference or ''),
+                     'party': party_name,
+                     'debit': dr, 'credit': cr})
+
+    pdf_content = render_to_pdf('pnl_account_detail_pdf.html', {
+        'account': acc,
+        'from_date': f_str,
+        'to_date':   t_str,
+        'rows': rows,
+        'total_debit':  total_debit,
+        'total_credit': total_credit,
+    })
+    if pdf_content:
+        safe_name = acc.name.replace(' ', '_').replace('/', '-')
+        return send_file(BytesIO(pdf_content), as_attachment=True,
+                         download_name=f"Detail_{safe_name}_{datetime.now().strftime('%Y%m%d')}.pdf")
+    return "Error generating PDF", 500
+
 @reports_bp.route('/reports/pnl/pdf')
 def pnl_statement_pdf():
     from models import Account, LedgerEntry, Event
@@ -1266,6 +1526,55 @@ def pnl_statement_pdf():
     if pdf_content:
         return send_file(BytesIO(pdf_content), download_name=f"PnL_Statement_{datetime.now().strftime('%Y%m%d')}.pdf", as_attachment=True)
     return "Error", 500
+
+@reports_bp.route('/reports/pnl/csv')
+def pnl_statement_csv():
+    import csv
+    from io import StringIO, BytesIO
+    f_date, t_date, f_str, t_str = get_dates()
+    event_id = request.args.get('event_id', type=int)
+    basis = request.args.get('basis', 'accrual')
+
+    pnl_data = _get_pnl_data(f_date, t_date, f_str, t_str, event_id, basis)
+
+    company_name = current_app.config.get('COMPANY_NAME', 'Association')
+    company_address = current_app.config.get('COMPANY_ADDRESS', 'Address')
+
+    si = StringIO()
+    writer = csv.writer(si)
+
+    # ── Document header (no basis label) ─────────────────────────────────
+    writer.writerow([company_name])
+    writer.writerow([company_address])
+    writer.writerow(["INCOME & EXPENDITURE STATEMENT"])
+    writer.writerow([f"Period: {f_str} to {t_str}"])
+    writer.writerow([])
+
+    # ── Column header ─────────────────────────────────────────────────────
+    writer.writerow(["Account / Description", "Amount (BDT)"])
+
+    # ── Revenue section ───────────────────────────────────────────────────
+    writer.writerow(["--- REVENUE ---", ""])
+    for item in pnl_data['revenue']:
+        writer.writerow([f"{item['code']} - {item['name']}", f"{item['balance']:.2f}"])
+    writer.writerow(["Total Revenue", f"{pnl_data['total_revenue']:.2f}"])
+    writer.writerow([])
+
+    # ── Expense section ───────────────────────────────────────────────────
+    writer.writerow(["--- EXPENSES ---", ""])
+    for item in pnl_data['expense']:
+        writer.writerow([f"{item['code']} - {item['name']}", f"{item['balance']:.2f}"])
+    writer.writerow(["Total Expenses", f"{pnl_data['total_expense']:.2f}"])
+    writer.writerow([])
+
+    # ── Net result ────────────────────────────────────────────────────────
+    label = "INCOME OVER EXPENDITURE" if pnl_data['net_profit'] >= 0 else "EXPENDITURE OVER INCOME"
+    writer.writerow([label, f"{pnl_data['net_profit']:.2f}"])
+
+    output = BytesIO(si.getvalue().encode('utf-8-sig'))  # utf-8-sig BOM for Excel compatibility
+    output.seek(0)
+    filename = f"PnL_Statement_{datetime.now().strftime('%Y%m%d')}.csv"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='text/csv')
 
 @reports_bp.route('/reports/multi-unit/pdf')
 def multi_unit_ledger_pdf():

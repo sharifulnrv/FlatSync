@@ -17,6 +17,11 @@ class Unit(db.Model):
     status = db.Column(db.String(20), default='vacant') # occupied, vacant
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'))
 
+    @property
+    def bills(self):
+        from models import MonthlyBill
+        return MonthlyBill.query.filter_by(unit_id=self.id).order_by(MonthlyBill.year.desc(), MonthlyBill.month.desc()).all()
+
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)

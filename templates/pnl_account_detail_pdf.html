@@ -1,0 +1,87 @@
+{% extends "pdf_report_base.html" %}
+
+{% block pdf_header %}{{ account.code }} – {{ account.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .detail-meta {
+        text-align: center;
+        font-size: 10pt;
+        color: #475569;
+        margin-bottom: 24px;
+        font-weight: bold;
+    }
+    .detail-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+        margin-bottom: 20px;
+    }
+    .detail-table th {
+        background-color: #1e293b;
+        color: #ffffff;
+        padding: 7px 10px;
+        text-align: left;
+        font-size: 8pt;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .detail-table th.num { text-align: right; }
+    .detail-table td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        vertical-align: top;
+    }
+    .detail-table td.num {
+        text-align: right;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+    }
+    .detail-table tr.stripe { background-color: #f8fafc; }
+    .totals-row td {
+        background-color: #1e293b;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 10pt;
+        padding: 9px 10px;
+        border-top: 2px solid #0f172a;
+    }
+    .totals-row td.num { text-align: right; font-family: 'Courier New', monospace; }
+    .no-entries { color: #94a3b8; font-style: italic; text-align: center; padding: 30px; }
+</style>
+
+<div class="detail-meta">Period: {{ from_date }} &nbsp;→&nbsp; {{ to_date }}</div>
+
+{% if rows %}
+<table class="detail-table">
+    <thead>
+        <tr>
+            <th style="width:12%">Date</th>
+            <th style="width:38%">Narration</th>
+            <th style="width:28%">Party / Customer</th>
+            <th class="num" style="width:11%">Debit (৳)</th>
+            <th class="num" style="width:11%">Credit (৳)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr class="{{ 'stripe' if loop.index is odd else '' }}">
+            <td>{{ row.date }}</td>
+            <td>{{ row.narration }}</td>
+            <td>{{ row.party }}</td>
+            <td class="num">{% if row.debit %}{{ "{:,.2f}".format(row.debit) }}{% endif %}</td>
+            <td class="num">{% if row.credit %}{{ "{:,.2f}".format(row.credit) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row">
+            <td colspan="3" style="text-align:right; text-transform:uppercase; letter-spacing:1px;">Total</td>
+            <td class="num">{{ "{:,.2f}".format(total_debit) }}</td>
+            <td class="num">{{ "{:,.2f}".format(total_credit) }}</td>
+        </tr>
+    </tbody>
+</table>
+{% else %}
+<p class="no-entries">No ledger entries found for this account in the selected period.</p>
+{% endif %}
+{% endblock %}

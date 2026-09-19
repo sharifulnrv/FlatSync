@@ -1,7 +1,7 @@
 {% extends "pdf_report_base.html" if is_pdf else "base.html" %}
 
 {% block header %}Income & Expenditure Statement{% endblock %}
-{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Income & Expenditure Statement') }} ({{ 'Cash' if data.basis == 'cash' else 'Accrual' }} Basis){% endblock %}
+{% block pdf_header %}{{ data.event.name + ' - ' if data.event }}{{ title|default('Income & Expenditure Statement') }}{% endblock %}
 
 {% block content %}
 
@@ -254,6 +254,9 @@
                     <a href="{{ url_for('reports.pnl_statement_pdf', from_date=data.from_date, to_date=data.to_date, event_id=data.event.id if data.event else None, basis=data.basis) }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center shadow-lg backdrop-blur-sm active:scale-95">
                         <i class="fas fa-file-pdf mr-2 text-rose-400"></i> PDF
                     </a>
+                    <a href="{{ url_for('reports.pnl_statement_csv', from_date=data.from_date, to_date=data.to_date, event_id=data.event.id if data.event else None, basis=data.basis) }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center shadow-lg backdrop-blur-sm active:scale-95">
+                        <i class="fas fa-file-csv mr-2 text-emerald-400"></i> CSV
+                    </a>
                     {% if data.from_date or data.to_date %}
                     <a href="{{ url_for('reports.pnl_statement') }}" class="text-gray-400 hover:text-white px-2 transition-colors flex items-center gap-2 text-xs font-bold uppercase" title="Clear Filters"><i class="fas fa-times-circle text-lg"></i> Clear</a>
                     {% endif %}
@@ -287,8 +290,9 @@
             
             <div class="space-y-3 pl-11">
                 {% for item in data.revenue %}
-                    <div class="flex justify-between items-center group p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100">
-                        <span class="text-gray-600 font-bold group-hover:text-emerald-700 transition-colors">
+                    <div onclick="openDetail({{ item.account_id }}, '{{ item.name }}', '{{ data.from_date }}', '{{ data.to_date }}', '{{ data.basis }}')" class="flex justify-between items-center group p-3 hover:bg-emerald-50 rounded-xl transition-all border border-transparent hover:border-emerald-200 cursor-pointer active:scale-[0.99]">
+                        <span class="text-gray-600 font-bold group-hover:text-emerald-700 transition-colors flex items-center gap-2">
+                            <i class="fas fa-chevron-right text-[9px] text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
                             {{ item.name }}
                         </span>
                         <span class="font-black text-gray-800 font-mono text-lg">৳ {{ "{:,.2f}".format(item.balance) }}</span>
@@ -314,8 +318,9 @@
             
             <div class="space-y-3 pl-11">
                 {% for item in data.expense %}
-                    <div class="flex justify-between items-center group p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100">
-                        <span class="text-gray-600 font-bold group-hover:text-rose-700 transition-colors">
+                    <div onclick="openDetail({{ item.account_id }}, '{{ item.name }}', '{{ data.from_date }}', '{{ data.to_date }}', '{{ data.basis }}')" class="flex justify-between items-center group p-3 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-200 cursor-pointer active:scale-[0.99]">
+                        <span class="text-gray-600 font-bold group-hover:text-rose-700 transition-colors flex items-center gap-2">
+                            <i class="fas fa-chevron-right text-[9px] text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
                             {{ item.name }}
                         </span>
                         <span class="font-black text-gray-800 font-mono text-lg">৳ {{ "{:,.2f}".format(item.balance) }}</span>
@@ -352,6 +357,133 @@
     </div>
 </div>
 {% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  ACCOUNT DETAIL DRAWER                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="detailBackdrop" onclick="closeDetail()" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden transition-opacity"></div>
+
+<div id="detailDrawer" class="fixed top-0 right-0 h-full w-full max-w-3xl bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-out flex flex-col">
+    <!-- Drawer Header -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-5 flex items-center justify-between shrink-0">
+        <div>
+            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">Account Detail</p>
+            <h3 id="drawerTitle" class="text-white font-black text-xl"></h3>
+            <p id="drawerPeriod" class="text-gray-400 text-xs mt-1"></p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a id="drawerCsvBtn" href="#" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
+                <i class="fas fa-file-csv text-emerald-400"></i> CSV
+            </a>
+            <a id="drawerPdfBtn" href="#" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
+                <i class="fas fa-file-pdf text-rose-400"></i> PDF
+            </a>
+            <button onclick="closeDetail()" class="ml-2 text-gray-400 hover:text-white transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="drawerLoading" class="flex-1 flex items-center justify-center">
+        <div class="text-center">
+            <i class="fas fa-circle-notch fa-spin text-indigo-500 text-3xl mb-3"></i>
+            <p class="text-gray-400 text-sm font-bold">Loading entries…</p>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div id="drawerContent" class="flex-1 overflow-y-auto hidden">
+        <table class="w-full text-sm" id="drawerTable">
+            <thead class="sticky top-0 z-10">
+                <tr class="bg-gray-50 border-b-2 border-gray-200">
+                    <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Date</th>
+                    <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest">Narration</th>
+                    <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest">Party / Customer</th>
+                    <th class="text-right px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Debit (৳)</th>
+                    <th class="text-right px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Credit (৳)</th>
+                </tr>
+            </thead>
+            <tbody id="drawerBody"></tbody>
+            <tfoot>
+                <tr class="bg-gray-800 text-white">
+                    <td colspan="3" class="px-4 py-3 text-right text-xs font-black uppercase tracking-widest">Total</td>
+                    <td id="drawerTotalDebit"  class="px-4 py-3 text-right font-mono font-black text-sm"></td>
+                    <td id="drawerTotalCredit" class="px-4 py-3 text-right font-mono font-black text-sm"></td>
+                </tr>
+            </tfoot>
+        </table>
+        <p id="drawerEmpty" class="hidden text-center text-gray-400 italic py-16 text-sm">No entries found for this period.</p>
+    </div>
+</div>
+
+<script>
+function openDetail(accountId, accountName, fromDate, toDate, basis) {
+    // Show drawer
+    document.getElementById('detailBackdrop').classList.remove('hidden');
+    const drawer = document.getElementById('detailDrawer');
+    drawer.classList.remove('translate-x-full');
+
+    // Set header
+    document.getElementById('drawerTitle').textContent  = accountName;
+    document.getElementById('drawerPeriod').textContent = fromDate + ' → ' + toDate;
+
+    // Build download URLs
+    const params = `account_id=${accountId}&from_date=${fromDate}&to_date=${toDate}&basis=${basis}`;
+    document.getElementById('drawerCsvBtn').href = `/reports/pnl/account-detail/csv?${params}`;
+    document.getElementById('drawerPdfBtn').href = `/reports/pnl/account-detail/pdf?${params}`;
+
+    // Show loading, hide content
+    document.getElementById('drawerLoading').classList.remove('hidden');
+    document.getElementById('drawerContent').classList.add('hidden');
+
+    // Fetch detail
+    fetch(`/reports/pnl/account-detail?${params}`)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('drawerBody');
+            tbody.innerHTML = '';
+
+            if (!data.entries || data.entries.length === 0) {
+                document.getElementById('drawerEmpty').classList.remove('hidden');
+                document.getElementById('drawerTable').classList.add('hidden');
+            } else {
+                document.getElementById('drawerEmpty').classList.add('hidden');
+                document.getElementById('drawerTable').classList.remove('hidden');
+
+                data.entries.forEach((row, i) => {
+                    const tr = document.createElement('tr');
+                    tr.className = (i % 2 === 0 ? 'bg-white' : 'bg-gray-50') + ' border-b border-gray-100 hover:bg-indigo-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-4 py-2.5 text-gray-500 font-mono text-xs whitespace-nowrap">${row.date}</td>
+                        <td class="px-4 py-2.5 text-gray-700">${row.narration || '—'}</td>
+                        <td class="px-4 py-2.5 text-gray-600 text-xs">${row.party || '—'}</td>
+                        <td class="px-4 py-2.5 text-right font-mono font-bold text-gray-800">${row.debit  ? '৳ ' + row.debit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
+                        <td class="px-4 py-2.5 text-right font-mono font-bold text-emerald-700">${row.credit ? '৳ ' + row.credit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                const fmt = v => '৳ ' + v.toLocaleString('en-IN', {minimumFractionDigits:2});
+                document.getElementById('drawerTotalDebit').textContent  = fmt(data.total_debit);
+                document.getElementById('drawerTotalCredit').textContent = fmt(data.total_credit);
+            }
+
+            document.getElementById('drawerLoading').classList.add('hidden');
+            document.getElementById('drawerContent').classList.remove('hidden');
+        })
+        .catch(() => {
+            document.getElementById('drawerLoading').innerHTML = '<p class="text-red-500 text-sm font-bold">Failed to load entries.</p>';
+        });
+}
+
+function closeDetail() {
+    document.getElementById('detailDrawer').classList.add('translate-x-full');
+    document.getElementById('detailBackdrop').classList.add('hidden');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+</script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
