@@ -37,8 +37,16 @@ def get_dates():
     # Make t_date inclusive of the entire day
     from datetime import time
     t_date = datetime.combine(t_date.date(), time(23, 59, 59))
-    
     return f_date, t_date, f_str, t_str
+
+def format_period(f_date, t_date, f_str, t_str):
+    import calendar
+    if f_date.year == t_date.year and f_date.month == t_date.month:
+        if f_date.day == 1:
+            last_day = calendar.monthrange(t_date.year, t_date.month)[1]
+            if t_date.day == last_day:
+                return f_date.strftime('%B %Y')
+    return f"{f_str} to {t_str}"
 
 def autosize_workbook(ws, min_width=15, skip_rows=4):
     """Safely autosize columns in an openpyxl worksheet."""
@@ -296,7 +304,8 @@ def _get_pnl_data(from_date, to_date, from_date_str, to_date_str, event_id, basi
     expense_accounts = Account.query.filter(Account.type == 'expense', Account.is_summary == False).order_by(Account.code).all()
     
     pnl_data = {'revenue': [], 'expense': [], 'total_revenue': 0, 'total_expense': 0, 
-                'from_date': from_date_str, 'to_date': to_date_str, 'event': event, 'basis': basis}
+                'from_date': from_date_str, 'to_date': to_date_str, 'event': event, 'basis': basis,
+                'formatted_period': format_period(from_date, to_date, from_date_str, to_date_str)}
                 
     for acc in revenue_accounts + expense_accounts:
         balance = 0
@@ -615,7 +624,7 @@ def export_pnl():
         ws.append([company_name])                                      # row 1
         ws.append([company_address])                                   # row 2
         ws.append(["INCOME & EXPENDITURE STATEMENT"])                  # row 3
-        ws.append([f"Reporting Period: {from_date_str} to {to_date_str}"])  # row 4
+        ws.append([f"Reporting Period: {format_period(from_date, to_date, from_date_str, to_date_str)}"])  # row 4
         ws.append([])                                                  # row 5 spacer
 
         last_col = "C"
@@ -1326,7 +1335,7 @@ def trial_balance_pdf():
 @reports_bp.route('/reports/pnl/account-detail')
 def pnl_account_detail():
     """Returns ledger entry details for a single account as JSON (used by the modal)."""
-    from models import Account, LedgerEntry, JournalEntry, Customer, Party
+    from models import Account, LedgerEntry, JournalEntry, Customer, Party, Unit
     from flask import jsonify
     account_id = request.args.get('account_id', type=int)
     if not account_id:
@@ -1354,18 +1363,53 @@ def pnl_account_detail():
     for e in entries:
         je = e.parent
         party_name = ''
+        unit_number = ''
+        
+        if je.monthly_bill:
+            u = Unit.query.get(je.monthly_bill.unit_id)
+            if u:
+                unit_number = u.unit_number
+                
+        if not unit_number and je.reference and je.reference.startswith('UNIT-'):
+            unit_number = je.reference.split('-')[1]
+
         if e.customer_id:
             c = Customer.query.get(e.customer_id)
-            party_name = c.name if c else ''
+            if c:
+                party_name = c.name
+                if not unit_number:
+                    unit_number = ', '.join([u.unit_number for u in c.units])
         elif e.party_id:
             p = Party.query.get(e.party_id)
             party_name = p.name if p else ''
+            
+        status_color = ''
+        if je.monthly_bill:
+            if je.monthly_bill.status == 'unpaid':
+                status_color = 'red'
+            elif je.monthly_bill.status == 'paid':
+                status_color = 'green'
+            elif je.monthly_bill.status == 'partial':
+                status_color = 'orange'
+                
+        # Filter by status if requested
+        filter_status = request.args.get('status')
+        if filter_status:
+            if filter_status == 'due' and status_color != 'red':
+                continue
+            elif filter_status == 'paid' and status_color != 'green':
+                continue
+            elif filter_status == 'partial' and status_color != 'orange':
+                continue
+
         rows.append({
             'date': je.date.strftime('%Y-%m-%d') if je.date else '',
             'narration': (je.description or je.reference or ''),
             'party': party_name,
+            'unit': unit_number,
             'debit':  float(e.debit  or 0),
             'credit': float(e.credit or 0),
+            'status_color': status_color,
         })
 
     return jsonify({
@@ -1384,7 +1428,7 @@ def pnl_account_detail_csv():
     """Downloads ledger entries for a single account as a formatted CSV."""
     import csv
     from io import StringIO, BytesIO
-    from models import Account, LedgerEntry, JournalEntry, Customer, Party
+    from models import Account, LedgerEntry, JournalEntry, Customer, Party, Unit
 
     account_id = request.args.get('account_id', type=int)
     if not account_id:
@@ -1412,20 +1456,56 @@ def pnl_account_detail_csv():
     writer = csv.writer(si)
     writer.writerow([company_name])
     writer.writerow([f"Account: {acc.code} - {acc.name}"])
-    writer.writerow([f"Period: {f_str} to {t_str}"])
+    writer.writerow([f"Period: {format_period(f_date, t_date, f_str, t_str)}"])
     writer.writerow([])
-    writer.writerow(['Date', 'Narration', 'Party / Customer', 'Debit (BDT)', 'Credit (BDT)'])
+    writer.writerow(['Date', 'Narration', 'Unit', 'Party / Customer', 'Status', 'Debit (BDT)', 'Credit (BDT)'])
 
     total_debit = total_credit = 0
+    filter_status = request.args.get('status')
+    
     for e in entries:
         je = e.parent
         party_name = ''
+        unit_number = ''
+        
+        if je.monthly_bill:
+            u = Unit.query.get(je.monthly_bill.unit_id)
+            if u:
+                unit_number = u.unit_number
+                
+        if not unit_number and je.reference and je.reference.startswith('UNIT-'):
+            unit_number = je.reference.split('-')[1]
+
         if e.customer_id:
             c = Customer.query.get(e.customer_id)
-            party_name = c.name if c else ''
+            if c:
+                party_name = c.name
+                if not unit_number:
+                    unit_number = ', '.join([u.unit_number for u in c.units])
         elif e.party_id:
             p = Party.query.get(e.party_id)
             party_name = p.name if p else ''
+        status_val = ''
+        status_color = ''
+        if je.monthly_bill:
+            if je.monthly_bill.status == 'unpaid':
+                status_val = 'Due'
+                status_color = 'red'
+            elif je.monthly_bill.status == 'paid':
+                status_val = 'Collected'
+                status_color = 'green'
+            elif je.monthly_bill.status == 'partial':
+                status_val = 'Partial'
+                status_color = 'orange'
+
+        if filter_status:
+            if filter_status == 'due' and status_color != 'red':
+                continue
+            elif filter_status == 'paid' and status_color != 'green':
+                continue
+            elif filter_status == 'partial' and status_color != 'orange':
+                continue
+
         dr = float(e.debit or 0)
         cr = float(e.credit or 0)
         total_debit  += dr
@@ -1433,13 +1513,15 @@ def pnl_account_detail_csv():
         writer.writerow([
             je.date.strftime('%Y-%m-%d') if je.date else '',
             (je.description or je.reference or ''),
+            unit_number,
             party_name,
+            status_val,
             f"{dr:.2f}" if dr else '',
             f"{cr:.2f}" if cr else '',
         ])
 
     writer.writerow([])
-    writer.writerow(['', '', 'TOTAL', f"{total_debit:.2f}", f"{total_credit:.2f}"])
+    writer.writerow(['', '', '', 'TOTAL', '', f"{total_debit:.2f}", f"{total_credit:.2f}"])
 
     output = BytesIO(si.getvalue().encode('utf-8-sig'))
     output.seek(0)
@@ -1452,7 +1534,7 @@ def pnl_account_detail_csv():
 @reports_bp.route('/reports/pnl/account-detail/pdf')
 def pnl_account_detail_pdf():
     """Downloads ledger entries for a single account as PDF."""
-    from models import Account, LedgerEntry, JournalEntry, Customer, Party
+    from models import Account, LedgerEntry, JournalEntry, Customer, Party, Unit
     from io import BytesIO
 
     account_id = request.args.get('account_id', type=int)
@@ -1478,15 +1560,51 @@ def pnl_account_detail_pdf():
 
     rows = []
     total_debit = total_credit = 0
+    filter_status = request.args.get('status')
+    
     for e in entries:
         je = e.parent
         party_name = ''
+        unit_number = ''
+        
+        if je.monthly_bill:
+            u = Unit.query.get(je.monthly_bill.unit_id)
+            if u:
+                unit_number = u.unit_number
+                
+        if not unit_number and je.reference and je.reference.startswith('UNIT-'):
+            unit_number = je.reference.split('-')[1]
+
         if e.customer_id:
             c = Customer.query.get(e.customer_id)
-            party_name = c.name if c else ''
+            if c:
+                party_name = c.name
+                if not unit_number:
+                    unit_number = ', '.join([u.unit_number for u in c.units])
         elif e.party_id:
             p = Party.query.get(e.party_id)
             party_name = p.name if p else ''
+        status_val = ''
+        status_color = ''
+        if je.monthly_bill:
+            if je.monthly_bill.status == 'unpaid':
+                status_val = 'Due'
+                status_color = 'red'
+            elif je.monthly_bill.status == 'paid':
+                status_val = 'Collected'
+                status_color = 'green'
+            elif je.monthly_bill.status == 'partial':
+                status_val = 'Partial'
+                status_color = 'orange'
+
+        if filter_status:
+            if filter_status == 'due' and status_color != 'red':
+                continue
+            elif filter_status == 'paid' and status_color != 'green':
+                continue
+            elif filter_status == 'partial' and status_color != 'orange':
+                continue
+
         dr = float(e.debit or 0)
         cr = float(e.credit or 0)
         total_debit  += dr
@@ -1494,12 +1612,15 @@ def pnl_account_detail_pdf():
         rows.append({'date': je.date.strftime('%Y-%m-%d') if je.date else '',
                      'narration': (je.description or je.reference or ''),
                      'party': party_name,
+                     'unit': unit_number,
+                     'status': status_val,
                      'debit': dr, 'credit': cr})
 
     pdf_content = render_to_pdf('pnl_account_detail_pdf.html', {
         'account': acc,
         'from_date': f_str,
         'to_date':   t_str,
+        'formatted_period': format_period(f_date, t_date, f_str, t_str),
         'rows': rows,
         'total_debit':  total_debit,
         'total_credit': total_credit,
@@ -1547,7 +1668,7 @@ def pnl_statement_csv():
     writer.writerow([company_name])
     writer.writerow([company_address])
     writer.writerow(["INCOME & EXPENDITURE STATEMENT"])
-    writer.writerow([f"Period: {f_str} to {t_str}"])
+    writer.writerow([f"Period: {format_period(f_date, t_date, f_str, t_str)}"])
     writer.writerow([])
 
     # ── Column header ─────────────────────────────────────────────────────

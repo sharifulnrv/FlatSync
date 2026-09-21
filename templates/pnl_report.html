@@ -97,26 +97,9 @@
 <div class="report-container">
     <div class="period-header">
         {% if data.from_date and data.to_date %}
-            {% set parts_f = data.from_date.split('-') %}
-            {% set parts_t = data.to_date.split('-') %}
-            {% set is_full = false %}
-            {% if parts_f|length == 3 and parts_t|length == 3 %}
-                {% set y_f, m_f, d_f = parts_f %}
-                {% set y_t, m_t, d_t = parts_t %}
-                {% if y_f == y_t and m_f == m_t and d_f == '01' %}
-                    {% if (m_f in ['01','03','05','07','08','10','12'] and d_t == '31') or (m_f in ['04','06','09','11'] and d_t == '30') or (m_f == '02' and d_t in ['28','29']) %}
-                        {% set is_full = true %}
-                    {% endif %}
-                {% endif %}
-            {% endif %}
-            
-            {% if is_full %}
-                {% set m_f = parts_f[1] %}
-                {% set month_names = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June','07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'} %}
-                For the month of: <strong>{{ month_names[m_f] }} {{ parts_f[0] }}</strong>
-            {% else %}
-                For the period: <strong>{{ data.from_date }}</strong> to <strong>{{ data.to_date }}</strong>
-            {% endif %}
+            <div class="text-xs text-gray-500 font-mono bg-gray-50 inline-block px-3 py-1 rounded-lg border border-gray-100">
+                For the period: <strong>{{ data.formatted_period }}</strong>
+            </div>
         {% elif data.from_date %}
             From <strong>{{ data.from_date }}</strong>
         {% elif data.to_date %}
@@ -372,6 +355,12 @@
             <p id="drawerPeriod" class="text-gray-400 text-xs mt-1"></p>
         </div>
         <div class="flex items-center gap-3">
+            <select id="drawerStatusFilter" onchange="reloadDrawer()" class="bg-gray-800 hover:bg-gray-700 border border-white/20 text-white px-3 py-2 rounded-xl text-xs font-black tracking-widest outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
+                <option value="">ALL STATUSES</option>
+                <option value="due">DUE</option>
+                <option value="paid">COLLECTED</option>
+                <option value="partial">PARTIAL</option>
+            </select>
             <a id="drawerCsvBtn" href="#" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
                 <i class="fas fa-file-csv text-emerald-400"></i> CSV
             </a>
@@ -399,6 +388,7 @@
                 <tr class="bg-gray-50 border-b-2 border-gray-200">
                     <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Date</th>
                     <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest">Narration</th>
+                    <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest">Unit</th>
                     <th class="text-left px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest">Party / Customer</th>
                     <th class="text-right px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Debit (৳)</th>
                     <th class="text-right px-4 py-3 text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Credit (৳)</th>
@@ -407,7 +397,7 @@
             <tbody id="drawerBody"></tbody>
             <tfoot>
                 <tr class="bg-gray-800 text-white">
-                    <td colspan="3" class="px-4 py-3 text-right text-xs font-black uppercase tracking-widest">Total</td>
+                    <td colspan="4" class="px-4 py-3 text-right text-xs font-black uppercase tracking-widest">Total</td>
                     <td id="drawerTotalDebit"  class="px-4 py-3 text-right font-mono font-black text-sm"></td>
                     <td id="drawerTotalCredit" class="px-4 py-3 text-right font-mono font-black text-sm"></td>
                 </tr>
@@ -418,18 +408,24 @@
 </div>
 
 <script>
-function openDetail(accountId, accountName, fromDate, toDate, basis) {
-    // Show drawer
-    document.getElementById('detailBackdrop').classList.remove('hidden');
-    const drawer = document.getElementById('detailDrawer');
-    drawer.classList.remove('translate-x-full');
+let currentDrawerState = {};
 
+function reloadDrawer() {
+    if (!currentDrawerState.accountId) return;
+    
+    const {accountId, accountName, fromDate, toDate, basis} = currentDrawerState;
+    const status = document.getElementById('drawerStatusFilter').value;
+    
     // Set header
     document.getElementById('drawerTitle').textContent  = accountName;
     document.getElementById('drawerPeriod').textContent = fromDate + ' → ' + toDate;
 
     // Build download URLs
-    const params = `account_id=${accountId}&from_date=${fromDate}&to_date=${toDate}&basis=${basis}`;
+    let params = `account_id=${accountId}&from_date=${fromDate}&to_date=${toDate}&basis=${basis}`;
+    if (status) {
+        params += `&status=${status}`;
+    }
+    
     document.getElementById('drawerCsvBtn').href = `/reports/pnl/account-detail/csv?${params}`;
     document.getElementById('drawerPdfBtn').href = `/reports/pnl/account-detail/pdf?${params}`;
 
@@ -454,12 +450,32 @@ function openDetail(accountId, accountName, fromDate, toDate, basis) {
                 data.entries.forEach((row, i) => {
                     const tr = document.createElement('tr');
                     tr.className = (i % 2 === 0 ? 'bg-white' : 'bg-gray-50') + ' border-b border-gray-100 hover:bg-indigo-50 transition-colors';
+                    
+                    let amountColorClass = 'text-emerald-700';
+                    let debitColorClass = 'text-gray-800';
+                    let statusBadge = '';
+                    
+                    if (row.status_color === 'red') {
+                        amountColorClass = 'text-red-600';
+                        debitColorClass = 'text-red-600';
+                        statusBadge = ' <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">Due</span>';
+                    } else if (row.status_color === 'green') {
+                        amountColorClass = 'text-emerald-600';
+                        debitColorClass = 'text-emerald-600';
+                        statusBadge = ' <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">Collected</span>';
+                    } else if (row.status_color === 'orange') {
+                        amountColorClass = 'text-orange-600';
+                        debitColorClass = 'text-orange-600';
+                        statusBadge = ' <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800">Partial</span>';
+                    }
+
                     tr.innerHTML = `
                         <td class="px-4 py-2.5 text-gray-500 font-mono text-xs whitespace-nowrap">${row.date}</td>
-                        <td class="px-4 py-2.5 text-gray-700">${row.narration || '—'}</td>
+                        <td class="px-4 py-2.5 text-gray-700">${row.narration || '—'}${statusBadge}</td>
+                        <td class="px-4 py-2.5 text-gray-600 font-bold text-xs">${row.unit || '—'}</td>
                         <td class="px-4 py-2.5 text-gray-600 text-xs">${row.party || '—'}</td>
-                        <td class="px-4 py-2.5 text-right font-mono font-bold text-gray-800">${row.debit  ? '৳ ' + row.debit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
-                        <td class="px-4 py-2.5 text-right font-mono font-bold text-emerald-700">${row.credit ? '৳ ' + row.credit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
+                        <td class="px-4 py-2.5 text-right font-mono font-bold ${debitColorClass}">${row.debit  ? '৳ ' + row.debit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
+                        <td class="px-4 py-2.5 text-right font-mono font-bold ${amountColorClass}">${row.credit ? '৳ ' + row.credit.toLocaleString('en-IN', {minimumFractionDigits:2}) : ''}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -475,6 +491,20 @@ function openDetail(accountId, accountName, fromDate, toDate, basis) {
         .catch(() => {
             document.getElementById('drawerLoading').innerHTML = '<p class="text-red-500 text-sm font-bold">Failed to load entries.</p>';
         });
+}
+
+function openDetail(accountId, accountName, fromDate, toDate, basis) {
+    // Show drawer
+    document.getElementById('detailBackdrop').classList.remove('hidden');
+    const drawer = document.getElementById('detailDrawer');
+    drawer.classList.remove('translate-x-full');
+    
+    // Reset status filter
+    document.getElementById('drawerStatusFilter').value = '';
+    
+    // Save state and load
+    currentDrawerState = {accountId, accountName, fromDate, toDate, basis};
+    reloadDrawer();
 }
 
 function closeDetail() {
